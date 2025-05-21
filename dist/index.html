@@ -1,12 +1,25 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <title>Farm Sim</title>
-    <link data-trunk rel="copy-file" href="assets/seed.png" />
-    <link data-trunk rel="copy-file" href="assets/wheat.png" />
-    <link data-trunk rel="copy-file" href="assets/corn.png" />
-    <link data-trunk rel="copy-file" href="assets/carrot.png" />
+    
+<script type="module">
+import init, * as bindings from '/farm_sim-837ea9c1c336c24e.js';
+const wasm = await init({ module_or_path: '/farm_sim-837ea9c1c336c24e_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+    <!-- 添加种子、作物图片，Trunk会自动复制这些资源 -->
+    
+    
+    
+    
 
     <style>
       body {
@@ -17,32 +30,18 @@
         flex-direction: column;
         align-items: center;
       }
-
       #crop-select {
         margin: 20px 0;
         font-size: 1rem;
         padding: 0.5em 1em;
       }
-
       #canvas {
         border: 1px solid #ccc;
       }
     </style>
-
-    <script type="module">
-      import init, * as bindings from '/farm_sim-99d2277cca26870d.js';
-      const wasm = await init({ module_or_path: '/farm_sim-99d2277cca26870d_bg.wasm' });
-
-      window.wasmBindings = bindings;
-
-      dispatchEvent(new CustomEvent("TrunkApplicationStarted", { detail: { wasm } }));
-    </script>
-
-    <link rel="modulepreload" href="/farm_sim-99d2277cca26870d.js" crossorigin="anonymous" integrity="sha384-6PHzwnT+YxRo2PK+chvU8ZFFt1N0yDunTODb1VU/1Dn8xo0n/KCwh3jCn1pUXG0q">
-    <link rel="preload" href="/farm_sim-99d2277cca26870d_bg.wasm" crossorigin="anonymous" integrity="sha384-nQfR74eUv039osmkb5lgM2Xei/kQpvqhkvyJUfG9V5m3i2DwZUIFHTYKx4jhwA8i" as="fetch" type="application/wasm">
-  </head>
+  <link rel="modulepreload" href="/farm_sim-837ea9c1c336c24e.js" crossorigin="anonymous" integrity="sha384-pCsWM4iT6aFAB3lc32P9xtfDozX26GK39/QLxYO8jGbujQm8qeM46FNuk/bZutRE"><link rel="preload" href="/farm_sim-837ea9c1c336c24e_bg.wasm" crossorigin="anonymous" integrity="sha384-G17EZOW+QffLOR4QxTTHssq7V+H/dJzNvvz1HVNcOymc59mTzH2XfTBmqDiZE4iW" as="fetch" type="application/wasm"></head>
   <body>
-    <!-- 居中显示在顶部，不遮挡 Canvas -->
+    <!-- 增加选择作物的下拉框 -->
     <select id="crop-select">
       <option value="wheat">Wheat</option>
       <option value="corn">Corn</option>
@@ -50,23 +49,24 @@
     </select>
 
     <canvas id="canvas" width="400" height="400"></canvas>
+  <script>"use strict";
 
-    <script>"use strict";
+(function () {
 
-      (function () {
-        const address = '{{__TRUNK_ADDRESS__}}';
-        const base = '{{__TRUNK_WS_BASE__}}';
-        let protocol = '';
-        protocol =
-          protocol
+    const address = '{{__TRUNK_ADDRESS__}}';
+    const base = '{{__TRUNK_WS_BASE__}}';
+    let protocol = '';
+    protocol =
+        protocol
             ? protocol
             : window.location.protocol === 'https:'
-              ? 'wss'
-              : 'ws';
-        const url = protocol + '://' + address + base + '.well-known/trunk/ws';
+                ? 'wss'
+                : 'ws';
+    const url = protocol + '://' + address + base + '.well-known/trunk/ws';
 
-        class Overlay {
-          constructor() {
+    class Overlay {
+        constructor() {
+            // create an overlay
             this._overlay = document.createElement("div");
             const style = this._overlay.style;
             style.height = "100vh";
@@ -76,10 +76,12 @@
             style.left = "0";
             style.backgroundColor = "rgba(222, 222, 222, 0.5)";
             style.fontFamily = "sans-serif";
+            // not sure that's the right approach
             style.zIndex = "1000000";
             style.backdropFilter = "blur(1rem)";
 
             const container = document.createElement("div");
+            // center it
             container.style.position = "absolute";
             container.style.top = "30%";
             container.style.left = "15%";
@@ -93,7 +95,7 @@
             this._message = document.createElement("div");
             this._message.style.whiteSpace = "pre-wrap";
 
-            const icon = document.createElement("div");
+            const icon= document.createElement("div");
             icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="#dc3545" viewBox="0 0 16 16"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>';
             this._title.prepend(icon);
 
@@ -102,72 +104,79 @@
 
             this._inject();
             window.setInterval(() => {
-              this._inject();
+                this._inject();
             }, 250);
-          }
-
-          set reason(reason) {
-            this._message.textContent = reason;
-          }
-
-          _inject() {
-            if (!this._overlay.isConnected) {
-              document.body?.prepend(this._overlay);
-            }
-          }
         }
 
-        class Client {
-          constructor(url) {
+        set reason(reason) {
+            this._message.textContent = reason;
+        }
+
+        _inject() {
+            if (!this._overlay.isConnected) {
+                // prepend it
+                document.body?.prepend(this._overlay);
+            }
+        }
+
+    }
+
+    class Client {
+        constructor(url) {
             this.url = url;
             this.poll_interval = 5000;
             this._overlay = null;
-          }
-
-          start() {
-            const ws = new WebSocket(this.url);
-            ws.onmessage = (ev) => {
-              const msg = JSON.parse(ev.data);
-              switch (msg.type) {
-                case "reload":
-                  this.reload();
-                  break;
-                case "buildFailure":
-                  this.buildFailure(msg.data);
-                  break;
-              }
-            };
-            ws.onclose = () => this.onclose();
-          }
-
-          onclose() {
-            window.setTimeout(
-              () => {
-                const ws = new WebSocket(this.url);
-                ws.onopen = () => window.location.reload();
-                ws.onclose = () => this.onclose();
-              },
-              this.poll_interval
-            );
-          }
-
-          reload() {
-            window.location.reload();
-          }
-
-          buildFailure({ reason }) {
-            console.error("Build failed:", reason);
-            console.debug("Overlay", this._overlay);
-            if (!this._overlay) {
-              this._overlay = new Overlay();
-            }
-            this._overlay.reason = reason;
-          }
         }
 
-        new Client(url).start();
+        start() {
+            const ws = new WebSocket(this.url);
+            ws.onmessage = (ev) => {
+                const msg = JSON.parse(ev.data);
+                switch (msg.type) {
+                    case "reload":
+                        this.reload();
+                        break;
+                    case "buildFailure":
+                        this.buildFailure(msg.data)
+                        break;
+                }
+            };
+            ws.onclose = () => this.onclose();
+        }
 
-      })();
-    </script>
-  </body>
+        onclose() {
+            window.setTimeout(
+                () => {
+                    // when we successfully reconnect, we'll force a
+                    // reload (since we presumably lost connection to
+                    // trunk due to it being killed, so it will have
+                    // rebuilt on restart)
+                    const ws = new WebSocket(this.url);
+                    ws.onopen = () => window.location.reload();
+                    ws.onclose = () => this.onclose();
+                },
+                this.poll_interval);
+        }
+
+        reload() {
+            window.location.reload();
+        }
+
+        buildFailure({reason}) {
+            // also log the console
+            console.error("Build failed:", reason);
+
+            console.debug("Overlay", this._overlay);
+
+            if (!this._overlay) {
+                this._overlay = new Overlay();
+            }
+            this._overlay.reason = reason;
+        }
+    }
+
+    new Client(url).start();
+
+})()
+</script></body>
 </html>

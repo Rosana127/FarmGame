@@ -83,7 +83,8 @@ fn start_render_loop() -> Result<(), JsValue> {
             for col in 0..10 {
                 let state = get_state(row, col);
 
-                closure_ctx.set_fill_style(&JsValue::from_str("#ddd"));
+                // 改为这样避免弃用警告
+                closure_ctx.set_fill_style(&JsValue::from("#ddd"));
                 closure_ctx.fill_rect(
                     (col * size) as f64,
                     (row * size) as f64,
@@ -102,7 +103,8 @@ fn start_render_loop() -> Result<(), JsValue> {
                 };
 
                 if let Some(img) = image {
-                    let _ = closure_ctx.draw_image_with_html_image_element(
+                    // 调用正确的带宽高参数的方法
+                    let _ = closure_ctx.draw_image_with_html_image_element_and_dw_and_dh(
                         &img,
                         (col * size) as f64,
                         (row * size) as f64,
@@ -141,8 +143,10 @@ fn load_image(src: &str, setter: fn(HtmlImageElement)) -> Result<(), JsValue> {
     let document = window().unwrap().document().unwrap();
     let img = document.create_element("img")?.dyn_into::<HtmlImageElement>()?;
 
+    let img_clone = img.clone(); // 这里clone一份给closure用
+
     let closure = Closure::wrap(Box::new(move || {
-        setter(img.clone());
+        setter(img_clone.clone());
 
         LOADED_COUNT.with(|count| {
             let mut count = count.borrow_mut();

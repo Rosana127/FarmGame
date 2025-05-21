@@ -14,4 +14,13 @@ wee_alloc = "0.4.5"
 
 [dependencies.web-sys]
 version = "0.3"
-features = ["Window", "Document", "Element", "HtmlCanvasElement", "CanvasRenderingContext2d", "MouseEvent"]
+features = [
+  "Window",
+  "Document",
+  "Element",
+  "HtmlCanvasElement",
+  "CanvasRenderingContext2d",
+  "MouseEvent",
+  "HtmlImageElement",
+  "HtmlSelectElement"
+]
