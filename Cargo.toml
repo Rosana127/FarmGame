@@ -22,5 +22,8 @@ features = [
   "MouseEvent",
   "HtmlImageElement",
   "HtmlSelectElement",
-  "HtmlElement"
+  "HtmlElement",
+  "DomTokenList",
+  "HtmlElement", 
+  "CssStyleDeclaration", 
 ]

@@ -31,7 +31,8 @@ impl Farm {
 
     pub fn plant(&mut self, row: usize, col: usize, crop: CropType) {
         if self.grid[row][col].state == TileState::Empty {
-            self.grid[row][col].state = TileState::Planted { crop, timer: 5 };
+            let timer = Self::get_growth_time(crop);
+            self.grid[row][col].state = TileState::Planted { crop, timer };
         }
     }
 
@@ -49,5 +50,13 @@ impl Farm {
 
     pub fn get_inventory(&self) -> std::collections::HashMap<String, u32> {
         self.inventory.get_items()
+    }
+
+    fn get_growth_time(crop: CropType) -> u32 {
+        match crop {
+            CropType::Carrot => 3,
+            CropType::Corn => 10,
+            CropType::Wheat => 5,
+        }
     }
 }

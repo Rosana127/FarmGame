@@ -123,36 +123,47 @@ fn start_render_loop() -> Result<(), JsValue> {
             }
         }
 
-        // 更新背包显示
+        // ✅ 更新背包显示为图标
         if let Some(inventory_el) = document.get_element_by_id("inventory") {
-            let inventory: std::collections::HashMap<String, u32> = FARM.with(|farm| farm.borrow().get_inventory());
-            let inventory_text = inventory.iter()
-                .map(|(item, count)| format!("{}: {}", item, count))
+            let inventory: std::collections::HashMap<String, u32> =
+                FARM.with(|farm| farm.borrow().get_inventory());
+
+            let inventory_html = inventory
+                .iter()
+                .map(|(item, count)| {
+                    let img_src = match item.as_str() {
+                        "wheat" => "wheat.png",
+                        "corn" => "corn.png",
+                        "carrot" => "carrot.png",
+                        _ => "seed.png", // fallback
+                    };
+                    format!(
+                        r#"<div class="inventory-item"><img src="{}" /><div>x{}</div></div>"#,
+                        img_src, count
+                    )
+                })
                 .collect::<Vec<_>>()
-                .join(", ");
-            inventory_el.set_inner_html(&inventory_text);
+                .join("");
+
+            inventory_el.set_inner_html(&inventory_html);
         }
 
-        let _ = window()
-            .unwrap()
-            .set_timeout_with_callback_and_timeout_and_arguments_0(
-                f_clone
-                    .borrow()
-                    .as_ref()
-                    .unwrap()
-                    .as_ref()
-                    .unchecked_ref(),
-                1000,
-            );
+        let _ = window().unwrap().set_timeout_with_callback_and_timeout_and_arguments_0(
+            f_clone
+                .borrow()
+                .as_ref()
+                .unwrap()
+                .as_ref()
+                .unchecked_ref(),
+            1000,
+        );
     }) as Box<dyn FnMut()>);
 
     f.borrow_mut().replace(closure);
-    let _ = window()
-        .unwrap()
-        .set_timeout_with_callback_and_timeout_and_arguments_0(
-            f.borrow().as_ref().unwrap().as_ref().unchecked_ref(),
-            1000,
-        );
+    let _ = window().unwrap().set_timeout_with_callback_and_timeout_and_arguments_0(
+        f.borrow().as_ref().unwrap().as_ref().unchecked_ref(),
+        1000,
+    );
 
     Ok(())
 }
@@ -211,23 +222,26 @@ pub fn start() -> Result<(), JsValue> {
     }
 
     // 背包图标点击事件
+    
     {
         let bag_icon = document.get_element_by_id("bag-icon").unwrap();
         let bag_icon: Element = bag_icon.dyn_into()?;
         let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
             if let Some(panel_el) = window().unwrap().document().unwrap().get_element_by_id("inventory-panel") {
-                let panel: Element = panel_el.dyn_into::<Element>().unwrap();
-                let current = panel.get_attribute("style").unwrap_or_default();
-                if current.contains("display: none") || current.is_empty() {
-                    panel.set_attribute("style", "display: block").unwrap();
+                let panel: web_sys::Element = panel_el.dyn_into().unwrap();
+                let html_panel = panel.dyn_into::<web_sys::HtmlElement>().unwrap();
+                let class_list = html_panel.class_list();
+                let _ = if class_list.contains("show") {
+                    class_list.remove_1("show")
                 } else {
-                    panel.set_attribute("style", "display: none").unwrap();
-                }
+                    class_list.add_1("show")
+                };
             }
         }) as Box<dyn FnMut(_)>);
         bag_icon.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
         closure.forget();
     }
+    
 
     // 作物选择下拉框事件
     {
@@ -249,6 +263,47 @@ pub fn start() -> Result<(), JsValue> {
         select.add_event_listener_with_callback("change", closure.as_ref().unchecked_ref())?;
         closure.forget();
     }
+
+    {
+        let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+            let document = web_sys::window().unwrap().document().unwrap();
+            let click_target = event
+                .target()
+                .unwrap()
+                .dyn_into::<web_sys::Element>()
+                .unwrap();
+    
+                let is_inside_inventory = click_target.closest("#inventory-panel").unwrap().is_some();
+                let is_bag_icon = click_target.closest("#bag-icon").unwrap().is_some();
+                let is_canvas = click_target.closest("#canvas").unwrap().is_some(); // 👈 检查 canvas
+                
+                if !is_inside_inventory && !is_bag_icon && !is_canvas {
+                if let Some(panel_el) = document.get_element_by_id("inventory-panel") {
+                    let panel = panel_el.dyn_into::<web_sys::HtmlElement>().unwrap();
+                    let _ = panel.class_list().remove_1("show");
+                }
+            }
+        }) as Box<dyn FnMut(_)>);
+    
+        web_sys::window()
+            .unwrap()
+            .document()
+            .unwrap()
+            .add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
+    
+        // 为了防止被 Rust 提前释放
+        closure.forget();
+    }
+    {
+        let panel_el = document.get_element_by_id("inventory-panel").unwrap();
+        let panel_el: web_sys::Element = panel_el.dyn_into()?;
+        let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+            event.stop_propagation(); // 👈 阻止向上冒泡到 document
+        }) as Box<dyn FnMut(_)>);
+        panel_el.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+    }
+    
 
     // 加载图片（移除 bag.png）
     load_image("seed.png", |img| {

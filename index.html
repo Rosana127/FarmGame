@@ -31,17 +31,52 @@
       #inventory-panel {
         position: absolute;
         top: 10px;
+        bottom: 10px;
         right: 10px;
+        width: 180px;
         background: #fff;
         border: 1px solid #000;
         padding: 10px;
-        display: none;
+        box-shadow: -2px 2px 5px rgba(0, 0, 0, 0.3);
+        z-index: 100;
+        overflow-y: auto;
+
+        transform: translateX(120%);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: transform 0.3s ease, opacity 0.3s ease;
       }
+
+      #inventory-panel.show {
+        transform: translateX(0);
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+      }
+
       #bag-icon {
         position: absolute;
-        top: 410px; /* Canvas 高度 400 + 10px 间距 */
+        bottom: 90px; /* Canvas 高度 400 + 10px 间距 */
         left: 10px;
         cursor: pointer;
+        width: 32px;
+        height: 32px;
+      }
+      /* 新增：背包图标显示样式 */
+      #inventory {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+      .inventory-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 0.8rem;
+      }
+      .inventory-item img {
         width: 32px;
         height: 32px;
       }
