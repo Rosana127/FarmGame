@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <title>Farm Sim</title>
     <link data-trunk rel="rust" href="Cargo.toml" />
-    <!-- 添加种子、作物图片，Trunk会自动复制这些资源 -->
+    <!-- 添加种子、作物和背包图片，Trunk会自动复制这些资源 -->
     <link data-trunk rel="copy-file" href="assets/seed.png" />
     <link data-trunk rel="copy-file" href="assets/wheat.png" />
     <link data-trunk rel="copy-file" href="assets/corn.png" />
     <link data-trunk rel="copy-file" href="assets/carrot.png" />
-
+    <link data-trunk rel="copy-file" href="assets/bag.png" />
     <style>
       body {
         margin: 0;
@@ -26,17 +26,37 @@
       }
       #canvas {
         border: 1px solid #ccc;
+        position: relative; /* 支持绝对定位的子元素 */
+      }
+      #inventory-panel {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #fff;
+        border: 1px solid #000;
+        padding: 10px;
+        display: none;
+      }
+      #bag-icon {
+        position: absolute;
+        top: 410px; /* Canvas 高度 400 + 10px 间距 */
+        left: 10px;
+        cursor: pointer;
+        width: 32px;
+        height: 32px;
       }
     </style>
   </head>
   <body>
-    <!-- 增加选择作物的下拉框 -->
     <select id="crop-select">
       <option value="wheat">Wheat</option>
       <option value="corn">Corn</option>
       <option value="carrot">Carrot</option>
     </select>
-
+    <div id="inventory-panel">
+      <div id="inventory"></div>
+    </div>
     <canvas id="canvas" width="400" height="400"></canvas>
+    <img id="bag-icon" src="bag.png" />
   </body>
 </html>

@@ -5,8 +5,8 @@
     <title>Farm Sim</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-837ea9c1c336c24e.js';
-const wasm = await init({ module_or_path: '/farm_sim-837ea9c1c336c24e_bg.wasm' });
+import init, * as bindings from '/farm_sim-3b2f7e70d15f2f4.js';
+const wasm = await init({ module_or_path: '/farm_sim-3b2f7e70d15f2f4_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -15,12 +15,12 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
-    <!-- 添加种子、作物图片，Trunk会自动复制这些资源 -->
+    <!-- 添加种子、作物和背包图片，Trunk会自动复制这些资源 -->
     
     
     
     
-
+    
     <style>
       body {
         margin: 0;
@@ -37,18 +37,38 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       }
       #canvas {
         border: 1px solid #ccc;
+        position: relative; /* 支持绝对定位的子元素 */
+      }
+      #inventory-panel {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #fff;
+        border: 1px solid #000;
+        padding: 10px;
+        display: none;
+      }
+      #bag-icon {
+        position: absolute;
+        top: 410px; /* Canvas 高度 400 + 10px 间距 */
+        left: 10px;
+        cursor: pointer;
+        width: 32px;
+        height: 32px;
       }
     </style>
-  <link rel="modulepreload" href="/farm_sim-837ea9c1c336c24e.js" crossorigin="anonymous" integrity="sha384-pCsWM4iT6aFAB3lc32P9xtfDozX26GK39/QLxYO8jGbujQm8qeM46FNuk/bZutRE"><link rel="preload" href="/farm_sim-837ea9c1c336c24e_bg.wasm" crossorigin="anonymous" integrity="sha384-G17EZOW+QffLOR4QxTTHssq7V+H/dJzNvvz1HVNcOymc59mTzH2XfTBmqDiZE4iW" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/farm_sim-3b2f7e70d15f2f4.js" crossorigin="anonymous" integrity="sha384-WptNh2gW3PboRHlsZBC2TK2nR9lq1Y2wGQh6cxCtQJfM/b+UYnGM5wEBpRMyGT92"><link rel="preload" href="/farm_sim-3b2f7e70d15f2f4_bg.wasm" crossorigin="anonymous" integrity="sha384-FzW4SaxOqM1AzsoDo8F3uy29E5sEEOeu05kV1bk9hUUBfhCl8typWM6SoSVMfAUF" as="fetch" type="application/wasm"></head>
   <body>
-    <!-- 增加选择作物的下拉框 -->
     <select id="crop-select">
       <option value="wheat">Wheat</option>
       <option value="corn">Corn</option>
       <option value="carrot">Carrot</option>
     </select>
-
+    <div id="inventory-panel">
+      <div id="inventory"></div>
+    </div>
     <canvas id="canvas" width="400" height="400"></canvas>
+    <img id="bag-icon" src="bag.png" />
   <script>"use strict";
 
 (function () {

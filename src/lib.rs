@@ -1,11 +1,12 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{window, HtmlCanvasElement, CanvasRenderingContext2d, HtmlImageElement, HtmlSelectElement};
+use web_sys::{window, HtmlCanvasElement, CanvasRenderingContext2d, HtmlImageElement, HtmlSelectElement, Element, MouseEvent};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 mod farm;
 mod tile;
+mod inventory;
 use crate::farm::Farm;
 use crate::tile::CropType;
 
@@ -61,6 +62,14 @@ pub fn get_state(row: usize, col: usize) -> String {
     })
 }
 
+#[wasm_bindgen]
+pub fn get_inventory() -> JsValue {
+    FARM.with(|farm| {
+        let inventory = farm.borrow().get_inventory();
+        serde_wasm_bindgen::to_value(&inventory).unwrap()
+    })
+}
+
 fn start_render_loop() -> Result<(), JsValue> {
     let win = window().unwrap();
     let document = win.document().unwrap();
@@ -79,12 +88,12 @@ fn start_render_loop() -> Result<(), JsValue> {
     let closure = Closure::wrap(Box::new(move || {
         tick();
 
+        // 绘制农田网格
         for row in 0..10 {
             for col in 0..10 {
                 let state = get_state(row, col);
 
-                // 改为这样避免弃用警告
-                closure_ctx.set_fill_style(&JsValue::from("#ddd"));
+                closure_ctx.set_fill_style(&JsValue::from_str("#ddd"));
                 closure_ctx.fill_rect(
                     (col * size) as f64,
                     (row * size) as f64,
@@ -103,7 +112,6 @@ fn start_render_loop() -> Result<(), JsValue> {
                 };
 
                 if let Some(img) = image {
-                    // 调用正确的带宽高参数的方法
                     let _ = closure_ctx.draw_image_with_html_image_element_and_dw_and_dh(
                         &img,
                         (col * size) as f64,
@@ -113,6 +121,16 @@ fn start_render_loop() -> Result<(), JsValue> {
                     );
                 }
             }
+        }
+
+        // 更新背包显示
+        if let Some(inventory_el) = document.get_element_by_id("inventory") {
+            let inventory: std::collections::HashMap<String, u32> = FARM.with(|farm| farm.borrow().get_inventory());
+            let inventory_text = inventory.iter()
+                .map(|(item, count)| format!("{}: {}", item, count))
+                .collect::<Vec<_>>()
+                .join(", ");
+            inventory_el.set_inner_html(&inventory_text);
         }
 
         let _ = window()
@@ -143,16 +161,13 @@ fn load_image(src: &str, setter: fn(HtmlImageElement)) -> Result<(), JsValue> {
     let document = window().unwrap().document().unwrap();
     let img = document.create_element("img")?.dyn_into::<HtmlImageElement>()?;
 
-    let img_clone = img.clone(); // 这里clone一份给closure用
-
+    let img_clone = img.clone();
     let closure = Closure::wrap(Box::new(move || {
         setter(img_clone.clone());
-
         LOADED_COUNT.with(|count| {
             let mut count = count.borrow_mut();
             *count += 1;
-            if *count == 4 {
-                // 所有图片加载完毕后启动渲染循环
+            if *count == 4 { // 仅加载 4 张图片（移除 bag.png）
                 start_render_loop().unwrap();
             }
         });
@@ -173,13 +188,15 @@ pub fn start() -> Result<(), JsValue> {
     let canvas = document.get_element_by_id("canvas").unwrap();
     let canvas: HtmlCanvasElement = canvas.dyn_into()?;
 
-    // 点击事件
+    // Canvas 点击事件：处理种植/收获
     {
         let size = 40;
         let canvas = canvas.clone();
-        let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+        let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
             let col = (event.offset_x() / size as i32) as usize;
             let row = (event.offset_y() / size as i32) as usize;
+
+            // 处理农田网格点击
             let state = get_state(row, col);
             if state.starts_with("empty") {
                 SELECTED_CROP.with(|selected| {
@@ -193,7 +210,26 @@ pub fn start() -> Result<(), JsValue> {
         closure.forget();
     }
 
-    // 下拉框事件
+    // 背包图标点击事件
+    {
+        let bag_icon = document.get_element_by_id("bag-icon").unwrap();
+        let bag_icon: Element = bag_icon.dyn_into()?;
+        let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
+            if let Some(panel_el) = window().unwrap().document().unwrap().get_element_by_id("inventory-panel") {
+                let panel: Element = panel_el.dyn_into::<Element>().unwrap();
+                let current = panel.get_attribute("style").unwrap_or_default();
+                if current.contains("display: none") || current.is_empty() {
+                    panel.set_attribute("style", "display: block").unwrap();
+                } else {
+                    panel.set_attribute("style", "display: none").unwrap();
+                }
+            }
+        }) as Box<dyn FnMut(_)>);
+        bag_icon.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+    }
+
+    // 作物选择下拉框事件
     {
         let select = document.get_element_by_id("crop-select").unwrap();
         let select: HtmlSelectElement = select.dyn_into()?;
@@ -214,7 +250,11 @@ pub fn start() -> Result<(), JsValue> {
         closure.forget();
     }
 
-    // 载入图片，渲染循环会在全部图片加载后自动启动
+    // 加载图片（移除 bag.png）
+    load_image("seed.png", |img| {
+        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+    })?;
+
     load_image("wheat.png", |img| {
         WHEAT_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
@@ -225,10 +265,6 @@ pub fn start() -> Result<(), JsValue> {
 
     load_image("carrot.png", |img| {
         CARROT_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
-    })?;
-
-    load_image("seed.png", |img| {
-        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
     Ok(())
