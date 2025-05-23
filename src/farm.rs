@@ -44,11 +44,11 @@ impl Farm {
                 CropType::Corn => "corn",
                 CropType::Carrot => "carrot",
             };
-            self.inventory.add(crop_name);
+            self.inventory.add_crop(crop_name);
         }
     }
 
-    pub fn get_inventory(&self) -> std::collections::HashMap<String, u32> {
+    pub fn get_inventory(&self) -> (std::collections::HashMap<String, u32>, std::collections::HashMap<String, u32>) {
         self.inventory.get_items()
     }
 

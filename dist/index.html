@@ -5,8 +5,8 @@
     <title>Farm Sim</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-450bac984f3f52e9.js';
-const wasm = await init({ module_or_path: '/farm_sim-450bac984f3f52e9_bg.wasm' });
+import init, * as bindings from '/farm_sim-21889254b3f0d9a7.js';
+const wasm = await init({ module_or_path: '/farm_sim-21889254b3f0d9a7_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -66,6 +66,31 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         pointer-events: auto;
       }
 
+      #shop-panel {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0.9);
+        width: 300px;
+        background: #fff;
+        border: 1px solid #000;
+        padding: 20px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        z-index: 100;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+        border-radius: 8px;
+      }
+
+      #shop-panel.show {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+      }
+
       #bag-icon {
         position: absolute;
         bottom: 90px; /* Canvas 高度 400 + 10px 间距 */
@@ -91,8 +116,69 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         width: 32px;
         height: 32px;
       }
+      #shop-button {
+        position: absolute;
+        bottom: 50px;
+        left: 10px;
+        padding: 8px 16px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #shop-button:hover {
+        background-color: #45a049;
+      }
+      .balance {
+        font-size: 1.2em;
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: #4CAF50;
+        text-align: center;
+      }
+      .shop-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+      }
+      .shop-item img {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 8px;
+      }
+      .shop-item button {
+        margin-top: 8px;
+        padding: 8px 16px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.3s;
+      }
+      .shop-item button:hover {
+        background-color: #45a049;
+      }
+      .shop-item div {
+        font-size: 16px;
+        color: #333;
+        margin: 5px 0;
+      }
     </style>
-  <link rel="modulepreload" href="/farm_sim-450bac984f3f52e9.js" crossorigin="anonymous" integrity="sha384-CHH+qA/2Y2FL6BJChc2a8J+V67vGQwThRpSHbcpuA+SF0U7c4zn9iC+UkheKCQXB"><link rel="preload" href="/farm_sim-450bac984f3f52e9_bg.wasm" crossorigin="anonymous" integrity="sha384-Ge/i0X6skXYWvzqFtGl7t6DX+Fysqk3RR0YMBaf9XEqx0YjEPKRzCpOplXKtr4/1" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/farm_sim-21889254b3f0d9a7.js" crossorigin="anonymous" integrity="sha384-PyN5yAvk9KDEe71uOCM5LUIF0mLofGjgpPXOuDR1kh5AUdoOtk+qmDNQVI0i55rq"><link rel="preload" href="/farm_sim-21889254b3f0d9a7_bg.wasm" crossorigin="anonymous" integrity="sha384-GQ20fUeU5HGXv7UZJusWJ2rUquCh7IJOh35WYfRRzFJ/xA18UZe+2Nwo8ZxuQD0p" as="fetch" type="application/wasm"></head>
   <body>
     <select id="crop-select">
       <option value="wheat">Wheat</option>
@@ -102,8 +188,12 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     <div id="inventory-panel">
       <div id="inventory"></div>
     </div>
+    <div id="shop-panel">
+      <div id="shop-items"></div>
+    </div>
     <canvas id="canvas" width="400" height="400"></canvas>
     <img id="bag-icon" src="bag.png" />
+    <button id="shop-button">💰</button>
   <script>"use strict";
 
 (function () {

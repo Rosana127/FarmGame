@@ -16,3 +16,4 @@ pub enum TileState {
 pub struct Tile {
     pub state: TileState,
 }
+
