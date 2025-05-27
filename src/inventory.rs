@@ -32,6 +32,19 @@ impl Inventory {
         }
         false
     }
+    // 在 src/inventory.rs 文件中
+    pub fn remove_crop(&mut self, crop: &str) -> bool { //
+        if let Some(count) = self.crops.get_mut(crop) { //
+            if *count > 0 { //
+                *count -= 1; //
+                if *count == 0 { //
+                    self.crops.remove(crop); // 可选: 如果数量为0，则移除条目
+                }
+                return true; //
+            }
+        }
+        false //
+    }
 
     pub fn get_items(&self) -> (HashMap<String, u32>, HashMap<String, u32>) {
         (self.seeds.clone(), self.crops.clone())

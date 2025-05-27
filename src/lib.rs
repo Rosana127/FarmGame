@@ -184,11 +184,17 @@ fn start_render_loop() -> Result<(), JsValue> {
                         img_src, count
                     )
                 }).collect::<Vec<_>>().join(""),
-                crops.iter().map(|(item, count)| {
-                    let img_src = format!("{}.png", item);
-                    format!(
-                        r#"<div class="inventory-item"><img src="{}" /><div>x{}</div></div>"#,
-                        img_src, count
+                crops.iter().map(|(item, count)| { //
+                    let img_src = format!("{}.png", item); //
+                    let sell_price = SHOP.with(|s| s.borrow().get_crop_price(item).unwrap_or(0)); //
+                    let sell_fn_call = format!("window.wasmBindings.try_sell_crop('{}')", item); //
+                    format!( //
+                        r#"<div class="inventory-item">
+                            <img src="{}" />
+                            <div>x{}</div>
+                            <button onclick="{}">Sell 1 ({}金币)</button>
+                        </div>"#,
+                        img_src, count, sell_fn_call, sell_price
                     )
                 }).collect::<Vec<_>>().join("")
             );
@@ -264,6 +270,25 @@ fn load_image(src: &str, setter: fn(HtmlImageElement)) -> Result<(), JsValue> {
     closure.forget();
 
     Ok(())
+}
+// 在 src/lib.rs 文件中
+#[wasm_bindgen]
+pub fn try_sell_crop(crop_type: String) -> bool { //
+    let mut sold = false;
+    FARM.with(|farm_cell| { //
+        let mut farm = farm_cell.borrow_mut();
+        if farm.inventory.remove_crop(&crop_type) { // 从物品栏消耗
+            SHOP.with(|shop_cell| { //
+                // shop.sell_crop 已经增加了余额
+                shop_cell.borrow_mut().sell_crop(&crop_type); //
+            });
+            sold = true;
+        }
+    });
+    if !sold {
+        web_sys::console::log_1(&format!("Failed to sell {}: Not in inventory.", crop_type).into());
+    }
+    sold
 }
 
 #[wasm_bindgen(start)]

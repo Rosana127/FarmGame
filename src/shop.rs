@@ -47,4 +47,12 @@ impl Shop {
     pub fn get_seed_price(&self, seed_type: &str) -> Option<u32> {
         self.seeds.get(seed_type).copied()
     }
+    pub fn get_crop_price(&self, crop_type: &str) -> Option<u32> { //
+        match crop_type {
+            "wheat" => Some(15), //
+            "corn" => Some(30), //
+            "carrot" => Some(25), //
+            _ => None,
+        }
+    }
 } 

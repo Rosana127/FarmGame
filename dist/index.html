@@ -5,8 +5,8 @@
     <title>Farm Sim</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-3dd1d9d96334c6ed.js';
-const wasm = await init({ module_or_path: '/farm_sim-3dd1d9d96334c6ed_bg.wasm' });
+import init, * as bindings from '/farm_sim-ea5f155a8615721b.js';
+const wasm = await init({ module_or_path: '/farm_sim-ea5f155a8615721b_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -42,18 +42,18 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       }
       #inventory-panel {
         position: absolute;
-        top: 10px;
-        bottom: 10px;
+        top: 50%;
         right: 10px;
-        width: 180px;
+        transform: translateY(-50%) translateX(120%);
+        width: 220px;  /* 增加面板宽度 */
+        max-height: 80vh;  /* 限制最大高度 */
         background: #fff;
-        border: 1px solid #000;
-        padding: 10px;
-        box-shadow: -2px 2px 5px rgba(0, 0, 0, 0.3);
+        border: 1px solid #ddd;
+        border-radius: 8px;  /* 添加圆角 */
+        padding: 15px;  /* 增加内边距 */
+        box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.15);
         z-index: 100;
         overflow-y: auto;
-
-        transform: translateX(120%);
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
@@ -61,7 +61,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       }
 
       #inventory-panel.show {
-        transform: translateX(0);
+        transform: translateY(-50%) translateX(0);
         opacity: 1;
         visibility: visible;
         pointer-events: auto;
@@ -76,21 +76,74 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         height: 32px;
       }
       /* 新增：背包图标显示样式 */
+    /* 在 index.html 的 <style> 标签内 */
       #inventory {
         display: flex;
+        flex-direction: column;
+        gap: 15px;
+        padding: 5px;
+      }
+      .inventory-section h3 {
+        margin: 0 0 8px 0;
+        text-align: center;
+        font-size: 0.9rem;
+        color: #333;
+        font-weight: 600;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 6px;
+      }
+      .inventory-items {
+        display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 12px;
         align-items: center;
+        justify-content: center;  /* 居中对齐 */
+        padding: 8px;
       }
       .inventory-item {
         display: flex;
         flex-direction: column;
         align-items: center;
-        font-size: 0.8rem;
+        background: #f8f8f8;
+        padding: 8px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+        width: 70px;  /* 固定宽度 */
+      }
+      .inventory-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
       }
       .inventory-item img {
-        width: 32px;
+        width: 32px;  /* 增加图片尺寸 */
         height: 32px;
+        object-fit: contain;
+        margin-bottom: 4px;
+      }
+      .inventory-item button {
+        width: 100%;  /* 按钮宽度占满容器 */
+        margin-top: 6px;
+        padding: 4px 8px;
+        font-size: 0.75rem;
+        background: #FFC107;
+        color: #333;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      }
+      .inventory-item button:hover {
+        background: #ffa000;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      }
+      .inventory-item .count {
+        font-size: 0.75rem;
+        color: #666;
+        margin-top: 4px;
+        font-weight: 500;
       }
       /* 商城按钮和面板样式 */
       #shop-button {
@@ -165,8 +218,26 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         margin-bottom: 15px;
         text-align: center;
       }
+      /* 优化滚动条样式 */
+      #inventory-panel::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      #inventory-panel::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+      }
+
+      #inventory-panel::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 3px;
+      }
+
+      #inventory-panel::-webkit-scrollbar-thumb:hover {
+        background: #999;
+      }
     </style>
-  <link rel="modulepreload" href="/farm_sim-3dd1d9d96334c6ed.js" crossorigin="anonymous" integrity="sha384-M0u0Qn94jbDd9ZnWKXmfna5PksRsBgP+hxxLuHvl1FT8hdi0w7LsAPmwkYD3BvzB"><link rel="preload" href="/farm_sim-3dd1d9d96334c6ed_bg.wasm" crossorigin="anonymous" integrity="sha384-PfmCGLpGsKh4f/kLm9AotamCD2ZhFdLj09TnLGJPPiFSMF1773lbzJ2H/NZb19/O" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/farm_sim-ea5f155a8615721b.js" crossorigin="anonymous" integrity="sha384-0fCmr/1vpyxLK5C5FYWonydew0rsGAGPxH+df9uog5n/cxl5tS29Se0dpfn5yram"><link rel="preload" href="/farm_sim-ea5f155a8615721b_bg.wasm" crossorigin="anonymous" integrity="sha384-BJBrkj5zLC1Hra47z3cLWATqcXSCBVf6yyDWcWym793Imkwg4YWSuGBzGIdAfUxL" as="fetch" type="application/wasm"></head>
   <body>
     <select id="crop-select">
       <option value="wheat">Wheat</option>
