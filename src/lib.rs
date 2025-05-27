@@ -38,7 +38,10 @@ pub fn plant(row: usize, col: usize, crop: String) {
         _ => CropType::Wheat,
     };
     SELECTED_CROP.with(|selected| *selected.borrow_mut() = crop_type);
-    FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type));
+    let success = FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type));
+    if !success {
+        web_sys::console::log_1(&"种植失败：没有足够的种子或地块不为空".into());
+    }
 }
 
 #[wasm_bindgen]

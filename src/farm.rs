@@ -29,11 +29,26 @@ impl Farm {
         }
     }
 
-    pub fn plant(&mut self, row: usize, col: usize, crop: CropType) {
-        if self.grid[row][col].state == TileState::Empty {
-            let timer = Self::get_growth_time(crop);
-            self.grid[row][col].state = TileState::Planted { crop, timer };
+    // 在 src/farm.rs 文件中
+    pub fn plant(&mut self, row: usize, col: usize, crop: CropType) -> bool { // 返回 bool 表示成功与否
+        let crop_name = match crop { //
+            CropType::Wheat => "wheat", //
+            CropType::Corn => "corn", //
+            CropType::Carrot => "carrot", //
+        };
+
+        if self.grid[row][col].state == TileState::Empty { //
+            if self.inventory.remove_seed(crop_name) { // 检查并移除种子
+                let timer = Self::get_growth_time(crop); //
+                self.grid[row][col].state = TileState::Planted { crop, timer }; //
+                return true; // 种植成功
+            } else {
+                // 没有可用的种子
+                return false;
+            }
         }
+        // 地块不为空或其他前置条件未满足
+        false
     }
 
     pub fn harvest(&mut self, row: usize, col: usize) {
