@@ -27,4 +27,11 @@ features = [
   "HtmlElement", 
   "CssStyleDeclaration",
   "console",
+  "DragEvent",
+  "DataTransfer",
+  "HtmlCollection",
+  "DomTokenList",
+  "Event",
+  "EventTarget",
+  "NodeList",
 ]

@@ -183,15 +183,18 @@ fn start_render_loop() -> Result<(), JsValue> {
                 seeds.iter().map(|(item, count)| {
                     let img_src = format!("{}.png", item);
                     format!(
-                        r#"<div class="inventory-item"><img src="{}" /><div>x{}</div></div>"#,
-                        img_src, count
+                        r#"<div class="inventory-item" draggable="true" data-seed-type="{}">
+                            <img src="{}" />
+                            <div>x{}</div>
+                        </div>"#,
+                        item, img_src, count
                     )
                 }).collect::<Vec<_>>().join(""),
-                crops.iter().map(|(item, count)| { //
-                    let img_src = format!("{}.png", item); //
-                    let sell_price = SHOP.with(|s| s.borrow().get_crop_price(item).unwrap_or(0)); //
-                    let sell_fn_call = format!("window.wasmBindings.try_sell_crop('{}')", item); //
-                    format!( //
+                crops.iter().map(|(item, count)| {
+                    let img_src = format!("{}.png", item);
+                    let sell_price = SHOP.with(|s| s.borrow().get_crop_price(item).unwrap_or(0));
+                    let sell_fn_call = format!("window.wasmBindings.try_sell_crop('{}')", item);
+                    format!(
                         r#"<div class="inventory-item">
                             <img src="{}" />
                             <div>x{}</div>
@@ -203,6 +206,32 @@ fn start_render_loop() -> Result<(), JsValue> {
             );
 
             inventory_el.set_inner_html(&inventory_html);
+
+            // 添加拖拽事件监听器
+            let seed_items = inventory_el.get_elements_by_class_name("inventory-item");
+            for i in 0..seed_items.length() {
+                if let Some(item) = seed_items.get_with_index(i) {
+                    let seed_type = item.get_attribute("data-seed-type").unwrap_or_default();
+                    
+                    let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
+                        let data_transfer = event.data_transfer().unwrap();
+                        let _ = data_transfer.set_data("text/plain", &seed_type);
+                        let target = event.target().unwrap();
+                        let element = target.dyn_into::<web_sys::Element>().unwrap();
+                        let _ = element.class_list().add_1("dragging");
+                    }) as Box<dyn FnMut(_)>);
+                    let _ = item.add_event_listener_with_callback("dragstart", closure.as_ref().unchecked_ref());
+                    closure.forget();
+
+                    let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
+                        let target = event.target().unwrap();
+                        let element = target.dyn_into::<web_sys::Element>().unwrap();
+                        let _ = element.class_list().remove_1("dragging");
+                    }) as Box<dyn FnMut(_)>);
+                    let _ = item.add_event_listener_with_callback("dragend", closure.as_ref().unchecked_ref());
+                    closure.forget();
+                }
+            }
         }
 
         // 更新商城显示
@@ -346,28 +375,6 @@ pub fn start() -> Result<(), JsValue> {
         closure.forget();
     }
 
-    // 作物选择下拉框事件
-    {
-        let select = document.get_element_by_id("crop-select")
-            .ok_or_else(|| JsValue::from_str("找不到 crop-select 元素"))?;
-        let select: HtmlSelectElement = select.dyn_into()?;
-        let closure = Closure::wrap(Box::new(move |event: web_sys::Event| {
-            let target = event.target().unwrap();
-            let select = target.dyn_into::<HtmlSelectElement>().unwrap();
-            let crop = select.value();
-            SELECTED_CROP.with(|selected| {
-                *selected.borrow_mut() = match crop.as_str() {
-                    "wheat" => CropType::Wheat,
-                    "corn" => CropType::Corn,
-                    "carrot" => CropType::Carrot,
-                    _ => CropType::Wheat,
-                };
-            });
-        }) as Box<dyn FnMut(_)>);
-        select.add_event_listener_with_callback("change", closure.as_ref().unchecked_ref())?;
-        closure.forget();
-    }
-
     // 商城按钮点击事件
     {
         let shop_button = document.get_element_by_id("shop-button")
@@ -455,6 +462,64 @@ pub fn start() -> Result<(), JsValue> {
             event.stop_propagation();
         }) as Box<dyn FnMut(_)>);
         panel_el.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+    }
+
+    // 添加拖拽相关事件处理
+    {
+        let canvas_rc = Rc::new(canvas.clone());
+        let canvas_clone = canvas_rc.clone();
+        let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
+            event.prevent_default();
+            let class_list = canvas_clone.class_list();
+            let _ = class_list.add_1("drag-over");
+        }) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("dragover", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+    }
+
+    {
+        let canvas_rc = Rc::new(canvas.clone());
+        let canvas_clone = canvas_rc.clone();
+        let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
+            event.prevent_default();
+            let class_list = canvas_clone.class_list();
+            let _ = class_list.remove_1("drag-over");
+        }) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("dragleave", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+    }
+
+    {
+        let canvas_rc = Rc::new(canvas.clone());
+        let canvas_clone = canvas_rc.clone();
+        let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
+            event.prevent_default();
+            let class_list = canvas_clone.class_list();
+            let _ = class_list.remove_1("drag-over");
+
+            let data_transfer = event.data_transfer().unwrap();
+            let seed_type = data_transfer.get_data("text/plain").unwrap();
+            let crop_type = match seed_type.as_str() {
+                "wheat" => CropType::Wheat,
+                "corn" => CropType::Corn,
+                "carrot" => CropType::Carrot,
+                _ => CropType::Wheat,
+            };
+
+            let col = (event.offset_x() / 40 as i32) as usize;
+            let row = (event.offset_y() / 40 as i32) as usize;
+
+            SELECTED_CROP.with(|selected| {
+                *selected.borrow_mut() = crop_type;
+            });
+
+            let success = FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type));
+            if !success {
+                web_sys::console::log_1(&"种植失败：没有足够的种子或地块不为空".into());
+            }
+        }) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("drop", closure.as_ref().unchecked_ref())?;
         closure.forget();
     }
 

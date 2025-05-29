@@ -5,8 +5,8 @@
     <title>Farm Sim</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-14df37b6f7f91c13.js';
-const wasm = await init({ module_or_path: '/farm_sim-14df37b6f7f91c13_bg.wasm' });
+import init, * as bindings from '/farm_sim-893ce11f03db1479.js';
+const wasm = await init({ module_or_path: '/farm_sim-893ce11f03db1479_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -237,7 +237,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         background: #999;
       }
     </style>
-  <link rel="modulepreload" href="/farm_sim-14df37b6f7f91c13.js" crossorigin="anonymous" integrity="sha384-J58IYEjjfhA0AgtMvzuNoShTOYsTxAT4lv50E2CbzpD6dNI78PoViHgTTmIuI9xE"><link rel="preload" href="/farm_sim-14df37b6f7f91c13_bg.wasm" crossorigin="anonymous" integrity="sha384-pE1HI65+jfY05VteTHHWUDmmD8ZFwaIf5KEe4dODMudCX/UtJX1MfZZhzsuAzXdH" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/farm_sim-893ce11f03db1479.js" crossorigin="anonymous" integrity="sha384-++DJ1srXv8fiNAUgCQ2DjGzZHjHJQ4pDcMjVXyamdgy6DASW4+uxx2VcOH4jU7kW"><link rel="preload" href="/farm_sim-893ce11f03db1479_bg.wasm" crossorigin="anonymous" integrity="sha384-FzOC2sotJ6YWHJrYmOLaN2PFdjB/XAnr6JfKwZgffZNsr1vupr12D9ZcQWerSkbV" as="fetch" type="application/wasm"></head>
   <body>
     <select id="crop-select">
       <option value="wheat">Wheat</option>
