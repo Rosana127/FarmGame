@@ -687,7 +687,10 @@ pub fn start() -> Result<(), JsValue> {
             });
 
             let success = FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type));
-            if !success {
+            if success {
+                // 拖拽种植成功后立即保存
+                let _ = save_game();
+            } else {
                 web_sys::console::log_1(&"种植失败：没有足够的种子或地块不为空".into());
             }
         }) as Box<dyn FnMut(_)>);
