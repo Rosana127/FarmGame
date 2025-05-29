@@ -160,76 +160,78 @@ fn start_render_loop() -> Result<(), JsValue> {
 
         // 更新背包显示
         if let Some(inventory_el) = document.get_element_by_id("inventory") {
-            let (seeds, crops) = FARM.with(|farm| farm.borrow().get_inventory());
-            let balance = SHOP.with(|shop| shop.borrow().get_balance());
+            if inventory_el.class_list().contains("active") {
+                let (seeds, crops) = FARM.with(|farm| farm.borrow().get_inventory());
+                let balance = SHOP.with(|shop| shop.borrow().get_balance());
 
-            let inventory_html = format!(
-                r#"
-                <div class="balance">金币: {}</div>
-                <div class="inventory-section">
-                    <h3>种子</h3>
-                    <div class="inventory-items">
-                        {}
+                let inventory_html = format!(
+                    r#"
+                    <div class="balance">金币: {}</div>
+                    <div class="inventory-section">
+                        <h3>种子</h3>
+                        <div class="inventory-items">
+                            {}
+                        </div>
                     </div>
-                </div>
-                <div class="inventory-section">
-                    <h3>农作物</h3>
-                    <div class="inventory-items">
-                        {}
+                    <div class="inventory-section">
+                        <h3>农作物</h3>
+                        <div class="inventory-items">
+                            {}
+                        </div>
                     </div>
-                </div>
-                "#,
-                balance,
-                seeds.iter().map(|(item, count)| {
-                    let img_src = format!("{}.png", item);
-                    format!(
-                        r#"<div class="inventory-item" draggable="true" data-seed-type="{}">
-                            <img src="{}" />
-                            <div>x{}</div>
-                        </div>"#,
-                        item, img_src, count
-                    )
-                }).collect::<Vec<_>>().join(""),
-                crops.iter().map(|(item, count)| {
-                    let img_src = format!("{}.png", item);
-                    let sell_price = SHOP.with(|s| s.borrow().get_crop_price(item).unwrap_or(0));
-                    let sell_fn_call = format!("window.wasmBindings.try_sell_crop('{}')", item);
-                    format!(
-                        r#"<div class="inventory-item">
-                            <img src="{}" />
-                            <div>x{}</div>
-                            <button onclick="{}">Sell 1 ({}金币)</button>
-                        </div>"#,
-                        img_src, count, sell_fn_call, sell_price
-                    )
-                }).collect::<Vec<_>>().join("")
-            );
+                    "#,
+                    balance,
+                    seeds.iter().map(|(item, count)| {
+                        let img_src = format!("{}.png", item);
+                        format!(
+                            r#"<div class="inventory-item" draggable="true" data-seed-type="{}">
+                                <img src="{}" />
+                                <div>x{}</div>
+                            </div>"#,
+                            item, img_src, count
+                        )
+                    }).collect::<Vec<_>>().join(""),
+                    crops.iter().map(|(item, count)| {
+                        let img_src = format!("{}.png", item);
+                        let sell_price = SHOP.with(|s| s.borrow().get_crop_price(item).unwrap_or(0));
+                        let sell_fn_call = format!("window.wasmBindings.try_sell_crop('{}')", item);
+                        format!(
+                            r#"<div class="inventory-item">
+                                <img src="{}" />
+                                <div>x{}</div>
+                                <button onclick="{}">出售 ({}金币)</button>
+                            </div>"#,
+                            img_src, count, sell_fn_call, sell_price
+                        )
+                    }).collect::<Vec<_>>().join("")
+                );
 
-            inventory_el.set_inner_html(&inventory_html);
+                inventory_el.set_inner_html(&inventory_html);
 
-            // 添加拖拽事件监听器
-            let seed_items = inventory_el.get_elements_by_class_name("inventory-item");
-            for i in 0..seed_items.length() {
-                if let Some(item) = seed_items.get_with_index(i) {
-                    let seed_type = item.get_attribute("data-seed-type").unwrap_or_default();
-                    
-                    let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
-                        let data_transfer = event.data_transfer().unwrap();
-                        let _ = data_transfer.set_data("text/plain", &seed_type);
-                        let target = event.target().unwrap();
-                        let element = target.dyn_into::<web_sys::Element>().unwrap();
-                        let _ = element.class_list().add_1("dragging");
-                    }) as Box<dyn FnMut(_)>);
-                    let _ = item.add_event_listener_with_callback("dragstart", closure.as_ref().unchecked_ref());
-                    closure.forget();
+                // 添加拖拽事件监听器
+                let seed_items = inventory_el.get_elements_by_class_name("inventory-item");
+                for i in 0..seed_items.length() {
+                    if let Some(item) = seed_items.get_with_index(i) {
+                        let seed_type = item.get_attribute("data-seed-type").unwrap_or_default();
+                        
+                        let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
+                            let data_transfer = event.data_transfer().unwrap();
+                            let _ = data_transfer.set_data("text/plain", &seed_type);
+                            let target = event.target().unwrap();
+                            let element = target.dyn_into::<web_sys::Element>().unwrap();
+                            let _ = element.class_list().add_1("dragging");
+                        }) as Box<dyn FnMut(_)>);
+                        let _ = item.add_event_listener_with_callback("dragstart", closure.as_ref().unchecked_ref());
+                        closure.forget();
 
-                    let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
-                        let target = event.target().unwrap();
-                        let element = target.dyn_into::<web_sys::Element>().unwrap();
-                        let _ = element.class_list().remove_1("dragging");
-                    }) as Box<dyn FnMut(_)>);
-                    let _ = item.add_event_listener_with_callback("dragend", closure.as_ref().unchecked_ref());
-                    closure.forget();
+                        let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
+                            let target = event.target().unwrap();
+                            let element = target.dyn_into::<web_sys::Element>().unwrap();
+                            let _ = element.class_list().remove_1("dragging");
+                        }) as Box<dyn FnMut(_)>);
+                        let _ = item.add_event_listener_with_callback("dragend", closure.as_ref().unchecked_ref());
+                        closure.forget();
+                    }
                 }
             }
         }
@@ -240,20 +242,74 @@ fn start_render_loop() -> Result<(), JsValue> {
             let shop_html = format!(
                 r#"
                 <div class="balance">金币: {}</div>
-                <div class="shop-item">
-                    <img src="wheat.png" />
-                    <div>小麦种子</div>
-                    <button onclick="window.wasmBindings.buy_seed('wheat')">购买 (10金币)</button>
+                <div class="shop-section">
+                    <h3>基础种子</h3>
+                    <div class="shop-items-grid">
+                        <div class="shop-item">
+                            <img src="wheat.png" />
+                            <div>小麦种子</div>
+                            <div class="price">10金币</div>
+                            <button onclick="window.wasmBindings.buy_seed('wheat')">购买</button>
+                        </div>
+                        <div class="shop-item">
+                            <img src="corn.png" />
+                            <div>玉米种子</div>
+                            <div class="price">20金币</div>
+                            <button onclick="window.wasmBindings.buy_seed('corn')">购买</button>
+                        </div>
+                        <div class="shop-item">
+                            <img src="carrot.png" />
+                            <div>胡萝卜种子</div>
+                            <div class="price">15金币</div>
+                            <button onclick="window.wasmBindings.buy_seed('carrot')">购买</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="shop-item">
-                    <img src="corn.png" />
-                    <div>玉米种子</div>
-                    <button onclick="window.wasmBindings.buy_seed('corn')">购买 (20金币)</button>
+                <div class="shop-section">
+                    <h3>高级种子</h3>
+                    <div class="shop-items-grid">
+                        <div class="shop-item">
+                            <img src="wheat.png" />
+                            <div>优质小麦种子</div>
+                            <div class="price">25金币</div>
+                            <button onclick="window.wasmBindings.buy_seed('wheat')">购买</button>
+                        </div>
+                        <div class="shop-item">
+                            <img src="corn.png" />
+                            <div>优质玉米种子</div>
+                            <div class="price">35金币</div>
+                            <button onclick="window.wasmBindings.buy_seed('corn')">购买</button>
+                        </div>
+                        <div class="shop-item">
+                            <img src="carrot.png" />
+                            <div>优质胡萝卜种子</div>
+                            <div class="price">30金币</div>
+                            <button onclick="window.wasmBindings.buy_seed('carrot')">购买</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="shop-item">
-                    <img src="carrot.png" />
-                    <div>胡萝卜种子</div>
-                    <button onclick="window.wasmBindings.buy_seed('carrot')">购买 (15金币)</button>
+                <div class="shop-section">
+                    <h3>特殊种子</h3>
+                    <div class="shop-items-grid">
+                        <div class="shop-item">
+                            <img src="wheat.png" />
+                            <div>金色小麦种子</div>
+                            <div class="price">50金币</div>
+                            <button onclick="window.wasmBindings.buy_seed('wheat')">购买</button>
+                        </div>
+                        <div class="shop-item">
+                            <img src="corn.png" />
+                            <div>金色玉米种子</div>
+                            <div class="price">60金币</div>
+                            <button onclick="window.wasmBindings.buy_seed('corn')">购买</button>
+                        </div>
+                        <div class="shop-item">
+                            <img src="carrot.png" />
+                            <div>金色胡萝卜种子</div>
+                            <div class="price">55金币</div>
+                            <button onclick="window.wasmBindings.buy_seed('carrot')">购买</button>
+                        </div>
+                    </div>
                 </div>
                 "#,
                 balance
@@ -375,46 +431,54 @@ pub fn start() -> Result<(), JsValue> {
         closure.forget();
     }
 
-    // 商城按钮点击事件
+    // 添加面板切换功能
     {
-        let shop_button = document.get_element_by_id("shop-button")
-            .ok_or_else(|| JsValue::from_str("找不到 shop-button 元素"))?;
-        let shop_button: Element = shop_button.dyn_into()?;
-        let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
-            let balance = SHOP.with(|shop| shop.borrow().get_balance());
-            let shop_html = format!(
-                r#"
-                <div class="balance">金币: {}</div>
-                <div class="shop-item">
-                    <img src="wheat.png" />
-                    <div>小麦种子</div>
-                    <button onclick="window.wasmBindings.buy_seed('wheat')">购买 (10金币)</button>
-                </div>
-                <div class="shop-item">
-                    <img src="corn.png" />
-                    <div>玉米种子</div>
-                    <button onclick="window.wasmBindings.buy_seed('corn')">购买 (20金币)</button>
-                </div>
-                <div class="shop-item">
-                    <img src="carrot.png" />
-                    <div>胡萝卜种子</div>
-                    <button onclick="window.wasmBindings.buy_seed('carrot')">购买 (15金币)</button>
-                </div>
-                "#,
-                balance
-            );
-            if let Some(shop_items_el) = window().unwrap().document().unwrap().get_element_by_id("shop-items") {
-                shop_items_el.set_inner_html(&shop_html);
+        let tabs = document.get_elements_by_class_name("panel-tab");
+        for i in 0..tabs.length() {
+            if let Some(tab) = tabs.get_with_index(i) {
+                let tab_clone = tab.clone();
+                let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
+                    let document = window().unwrap().document().unwrap();
+                    
+                    // 移除所有标签的active类
+                    let tabs = document.get_elements_by_class_name("panel-tab");
+                    for j in 0..tabs.length() {
+                        if let Some(t) = tabs.get_with_index(j) {
+                            let _ = t.class_list().remove_1("active");
+                        }
+                    }
+                    
+                    // 隐藏所有面板内容
+                    if let Some(inventory) = document.get_element_by_id("inventory") {
+                        let _ = inventory.set_attribute("style", "display: none");
+                    }
+                    if let Some(shop) = document.get_element_by_id("shop-items") {
+                        let _ = shop.set_attribute("style", "display: none");
+                    }
+                    
+                    // 添加active类到当前标签
+                    let _ = tab_clone.class_list().add_1("active");
+                    
+                    // 显示对应的面板内容
+                    let tab_name = tab_clone.get_attribute("data-tab").unwrap_or_default();
+                    match tab_name.as_str() {
+                        "inventory" => {
+                            if let Some(inventory) = document.get_element_by_id("inventory") {
+                                let _ = inventory.set_attribute("style", "display: block");
+                            }
+                        },
+                        "shop" => {
+                            if let Some(shop) = document.get_element_by_id("shop-items") {
+                                let _ = shop.set_attribute("style", "display: block");
+                            }
+                        },
+                        _ => {}
+                    }
+                }) as Box<dyn FnMut(_)>);
+                tab.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
+                closure.forget();
             }
-            if let Some(panel_el) = window().unwrap().document().unwrap().get_element_by_id("shop-panel") {
-                let panel: web_sys::Element = panel_el.dyn_into().unwrap();
-                let html_panel = panel.dyn_into::<web_sys::HtmlElement>().unwrap();
-                let class_list = html_panel.class_list();
-                let _ = class_list.add_1("show");
-            }
-        }) as Box<dyn FnMut(_)>);
-        shop_button.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
-        closure.forget();
+        }
     }
 
     // 点击事件处理
@@ -427,18 +491,12 @@ pub fn start() -> Result<(), JsValue> {
                 .dyn_into::<web_sys::Element>()
                 .unwrap();
     
-            let is_inside_inventory = click_target.closest("#inventory-panel").unwrap().is_some();
+            let is_inside_panel = click_target.closest("#inventory-panel").unwrap().is_some();
             let is_bag_icon = click_target.closest("#bag-icon").unwrap().is_some();
             let is_canvas = click_target.closest("#canvas").unwrap().is_some();
-            let is_shop_button = click_target.closest("#shop-button").unwrap().is_some();
-            let is_inside_shop = click_target.closest("#shop-panel").unwrap().is_some();
             
-            if !is_inside_inventory && !is_bag_icon && !is_canvas && !is_shop_button && !is_inside_shop {
+            if !is_inside_panel && !is_bag_icon && !is_canvas {
                 if let Some(panel_el) = document.get_element_by_id("inventory-panel") {
-                    let panel = panel_el.dyn_into::<web_sys::HtmlElement>().unwrap();
-                    let _ = panel.class_list().remove_1("show");
-                }
-                if let Some(panel_el) = document.get_element_by_id("shop-panel") {
                     let panel = panel_el.dyn_into::<web_sys::HtmlElement>().unwrap();
                     let _ = panel.class_list().remove_1("show");
                 }
@@ -451,17 +509,6 @@ pub fn start() -> Result<(), JsValue> {
             .unwrap()
             .add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
     
-        closure.forget();
-    }
-
-    {
-        let panel_el = document.get_element_by_id("shop-panel")
-            .ok_or_else(|| JsValue::from_str("找不到 shop-panel 元素"))?;
-        let panel_el: web_sys::Element = panel_el.dyn_into()?;
-        let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
-            event.stop_propagation();
-        }) as Box<dyn FnMut(_)>);
-        panel_el.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
         closure.forget();
     }
 
