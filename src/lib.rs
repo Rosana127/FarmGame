@@ -1,8 +1,18 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{window, HtmlCanvasElement, CanvasRenderingContext2d, HtmlImageElement, HtmlSelectElement, Element, MouseEvent};
+use web_sys::{
+    window,
+    HtmlCanvasElement,
+    CanvasRenderingContext2d,
+    HtmlImageElement,
+    Element,
+    MouseEvent,
+    HtmlElement,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
+use serde::{Serialize, Deserialize};
+use serde_json;
 
 mod farm;
 mod tile;
@@ -11,6 +21,14 @@ mod shop;
 use crate::farm::Farm;
 use crate::tile::CropType;
 use crate::shop::Shop;
+
+#[derive(Serialize, Deserialize)]
+struct GameState {
+    farm_grid: Vec<Vec<tile::TileState>>,
+    inventory_seeds: std::collections::HashMap<String, u32>,
+    inventory_crops: std::collections::HashMap<String, u32>,
+    balance: u32,
+}
 
 thread_local! {
     static FARM: RefCell<Farm> = RefCell::new(Farm::new(10, 10));
@@ -105,6 +123,79 @@ pub fn sell_crop(crop_type: String) {
     });
 }
 
+#[wasm_bindgen]
+pub fn save_game() -> Result<(), JsValue> {
+    let game_state = FARM.with(|farm| {
+        let farm = farm.borrow();
+        let grid = farm.grid.iter().map(|row| {
+            row.iter().map(|tile| tile.state).collect::<Vec<_>>()
+        }).collect::<Vec<_>>();
+        
+        let (seeds, crops) = farm.get_inventory();
+        let balance = SHOP.with(|shop| shop.borrow().get_balance());
+        
+        GameState {
+            farm_grid: grid,
+            inventory_seeds: seeds,
+            inventory_crops: crops,
+            balance,
+        }
+    });
+
+    let storage = window().unwrap().local_storage()?.unwrap();
+    let json = serde_json::to_string(&game_state).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    storage.set_item("farm_game_state", &json)?;
+    Ok(())
+}
+
+#[wasm_bindgen]
+pub fn load_game() -> Result<(), JsValue> {
+    let storage = window().unwrap().local_storage()?.unwrap();
+    if let Some(json) = storage.get_item("farm_game_state")? {
+        let game_state: GameState = serde_json::from_str(&json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        FARM.with(|farm| {
+            let mut farm = farm.borrow_mut();
+            // 恢复农田状态
+            for (row_idx, row) in game_state.farm_grid.iter().enumerate() {
+                for (col_idx, &state) in row.iter().enumerate() {
+                    farm.grid[row_idx][col_idx].state = state;
+                }
+            }
+            // 恢复背包状态
+            farm.inventory.seeds = game_state.inventory_seeds;
+            farm.inventory.crops = game_state.inventory_crops;
+        });
+        
+        SHOP.with(|shop| {
+            let mut shop = shop.borrow_mut();
+            shop.balance = game_state.balance;
+        });
+    }
+    Ok(())
+}
+
+#[wasm_bindgen]
+pub fn clear_save() -> Result<(), JsValue> {
+    let storage = window().unwrap().local_storage()?.unwrap();
+    storage.remove_item("farm_game_state")?;
+    
+    // 重置游戏状态
+    FARM.with(|farm| {
+        let mut farm = farm.borrow_mut();
+        farm.grid = vec![vec![tile::Tile { state: tile::TileState::Empty }; 10]; 10];
+        farm.inventory = inventory::Inventory::new();
+    });
+    
+    SHOP.with(|shop| {
+        let mut shop = shop.borrow_mut();
+        shop.balance = 100;
+    });
+    
+    Ok(())
+}
+
 fn start_render_loop() -> Result<(), JsValue> {
     let win = window().unwrap();
     let document = win.document().unwrap();
@@ -123,12 +214,22 @@ fn start_render_loop() -> Result<(), JsValue> {
     let closure = Closure::wrap(Box::new(move || {
         tick();
 
+        // 每60秒自动保存一次
+        static mut TICK_COUNT: u32 = 0;
+        unsafe {
+            TICK_COUNT += 1;
+            if TICK_COUNT >= 60 {
+                TICK_COUNT = 0;
+                let _ = save_game();
+            }
+        }
+
         // 绘制农田网格
         for row in 0..10 {
             for col in 0..10 {
                 let state = get_state(row, col);
 
-                closure_ctx.set_fill_style(&JsValue::from_str("#ddd"));
+                closure_ctx.set_fill_style_str("#ddd");
                 closure_ctx.fill_rect(
                     (col * size) as f64,
                     (row * size) as f64,
@@ -160,6 +261,7 @@ fn start_render_loop() -> Result<(), JsValue> {
 
         // 更新背包显示
         if let Some(inventory_el) = document.get_element_by_id("inventory") {
+            let inventory_el = inventory_el.dyn_into::<HtmlElement>().unwrap();
             if inventory_el.class_list().contains("active") {
                 let (seeds, crops) = FARM.with(|farm| farm.borrow().get_inventory());
                 let balance = SHOP.with(|shop| shop.borrow().get_balance());
@@ -212,13 +314,14 @@ fn start_render_loop() -> Result<(), JsValue> {
                 let seed_items = inventory_el.get_elements_by_class_name("inventory-item");
                 for i in 0..seed_items.length() {
                     if let Some(item) = seed_items.get_with_index(i) {
+                        let item = item.dyn_into::<HtmlElement>().unwrap();
                         let seed_type = item.get_attribute("data-seed-type").unwrap_or_default();
                         
                         let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
                             let data_transfer = event.data_transfer().unwrap();
                             let _ = data_transfer.set_data("text/plain", &seed_type);
                             let target = event.target().unwrap();
-                            let element = target.dyn_into::<web_sys::Element>().unwrap();
+                            let element = target.dyn_into::<HtmlElement>().unwrap();
                             let _ = element.class_list().add_1("dragging");
                         }) as Box<dyn FnMut(_)>);
                         let _ = item.add_event_listener_with_callback("dragstart", closure.as_ref().unchecked_ref());
@@ -226,7 +329,7 @@ fn start_render_loop() -> Result<(), JsValue> {
 
                         let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
                             let target = event.target().unwrap();
-                            let element = target.dyn_into::<web_sys::Element>().unwrap();
+                            let element = target.dyn_into::<HtmlElement>().unwrap();
                             let _ = element.class_list().remove_1("dragging");
                         }) as Box<dyn FnMut(_)>);
                         let _ = item.add_event_listener_with_callback("dragend", closure.as_ref().unchecked_ref());
@@ -359,16 +462,15 @@ fn load_image(src: &str, setter: fn(HtmlImageElement)) -> Result<(), JsValue> {
 
     Ok(())
 }
-// 在 src/lib.rs 文件中
+
 #[wasm_bindgen]
-pub fn try_sell_crop(crop_type: String) -> bool { //
+pub fn try_sell_crop(crop_type: String) -> bool {
     let mut sold = false;
-    FARM.with(|farm_cell| { //
+    FARM.with(|farm_cell| {
         let mut farm = farm_cell.borrow_mut();
-        if farm.inventory.remove_crop(&crop_type) { // 从物品栏消耗
-            SHOP.with(|shop_cell| { //
-                // shop.sell_crop 已经增加了余额
-                shop_cell.borrow_mut().sell_crop(&crop_type); //
+        if farm.inventory.remove_crop(&crop_type) {
+            SHOP.with(|shop_cell| {
+                shop_cell.borrow_mut().sell_crop(&crop_type);
             });
             sold = true;
         }
@@ -381,6 +483,9 @@ pub fn try_sell_crop(crop_type: String) -> bool { //
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
+    // 首先尝试加载存档
+    let _ = load_game();
+
     let win = window().ok_or_else(|| JsValue::from_str("无法获取 window"))?;
     let document = win.document().ok_or_else(|| JsValue::from_str("无法获取 document"))?;
 
@@ -417,9 +522,8 @@ pub fn start() -> Result<(), JsValue> {
         let bag_icon: Element = bag_icon.dyn_into()?;
         let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
             if let Some(panel_el) = window().unwrap().document().unwrap().get_element_by_id("inventory-panel") {
-                let panel: web_sys::Element = panel_el.dyn_into().unwrap();
-                let html_panel = panel.dyn_into::<web_sys::HtmlElement>().unwrap();
-                let class_list = html_panel.class_list();
+                let panel = panel_el.dyn_into::<HtmlElement>().unwrap();
+                let class_list = panel.class_list();
                 let _ = if class_list.contains("show") {
                     class_list.remove_1("show")
                 } else {
@@ -436,6 +540,7 @@ pub fn start() -> Result<(), JsValue> {
         let tabs = document.get_elements_by_class_name("panel-tab");
         for i in 0..tabs.length() {
             if let Some(tab) = tabs.get_with_index(i) {
+                let tab = tab.dyn_into::<HtmlElement>().unwrap();
                 let tab_clone = tab.clone();
                 let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
                     let document = window().unwrap().document().unwrap();
@@ -444,15 +549,18 @@ pub fn start() -> Result<(), JsValue> {
                     let tabs = document.get_elements_by_class_name("panel-tab");
                     for j in 0..tabs.length() {
                         if let Some(t) = tabs.get_with_index(j) {
+                            let t = t.dyn_into::<HtmlElement>().unwrap();
                             let _ = t.class_list().remove_1("active");
                         }
                     }
                     
                     // 隐藏所有面板内容
                     if let Some(inventory) = document.get_element_by_id("inventory") {
+                        let inventory = inventory.dyn_into::<HtmlElement>().unwrap();
                         let _ = inventory.set_attribute("style", "display: none");
                     }
                     if let Some(shop) = document.get_element_by_id("shop-items") {
+                        let shop = shop.dyn_into::<HtmlElement>().unwrap();
                         let _ = shop.set_attribute("style", "display: none");
                     }
                     
@@ -464,11 +572,13 @@ pub fn start() -> Result<(), JsValue> {
                     match tab_name.as_str() {
                         "inventory" => {
                             if let Some(inventory) = document.get_element_by_id("inventory") {
+                                let inventory = inventory.dyn_into::<HtmlElement>().unwrap();
                                 let _ = inventory.set_attribute("style", "display: block");
                             }
                         },
                         "shop" => {
                             if let Some(shop) = document.get_element_by_id("shop-items") {
+                                let shop = shop.dyn_into::<HtmlElement>().unwrap();
                                 let _ = shop.set_attribute("style", "display: block");
                             }
                         },
@@ -488,7 +598,7 @@ pub fn start() -> Result<(), JsValue> {
             let click_target = event
                 .target()
                 .unwrap()
-                .dyn_into::<web_sys::Element>()
+                .dyn_into::<Element>()
                 .unwrap();
     
             let is_inside_panel = click_target.closest("#inventory-panel").unwrap().is_some();
@@ -497,7 +607,7 @@ pub fn start() -> Result<(), JsValue> {
             
             if !is_inside_panel && !is_bag_icon && !is_canvas {
                 if let Some(panel_el) = document.get_element_by_id("inventory-panel") {
-                    let panel = panel_el.dyn_into::<web_sys::HtmlElement>().unwrap();
+                    let panel = panel_el.dyn_into::<HtmlElement>().unwrap();
                     let _ = panel.class_list().remove_1("show");
                 }
             }
@@ -518,8 +628,8 @@ pub fn start() -> Result<(), JsValue> {
         let canvas_clone = canvas_rc.clone();
         let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
             event.prevent_default();
-            let class_list = canvas_clone.class_list();
-            let _ = class_list.add_1("drag-over");
+            let canvas = canvas_clone.dyn_ref::<HtmlElement>().unwrap();
+            let _ = canvas.class_list().add_1("drag-over");
         }) as Box<dyn FnMut(_)>);
         canvas.add_event_listener_with_callback("dragover", closure.as_ref().unchecked_ref())?;
         closure.forget();
@@ -530,8 +640,8 @@ pub fn start() -> Result<(), JsValue> {
         let canvas_clone = canvas_rc.clone();
         let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
             event.prevent_default();
-            let class_list = canvas_clone.class_list();
-            let _ = class_list.remove_1("drag-over");
+            let canvas = canvas_clone.dyn_ref::<HtmlElement>().unwrap();
+            let _ = canvas.class_list().remove_1("drag-over");
         }) as Box<dyn FnMut(_)>);
         canvas.add_event_listener_with_callback("dragleave", closure.as_ref().unchecked_ref())?;
         closure.forget();
@@ -542,8 +652,8 @@ pub fn start() -> Result<(), JsValue> {
         let canvas_clone = canvas_rc.clone();
         let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
             event.prevent_default();
-            let class_list = canvas_clone.class_list();
-            let _ = class_list.remove_1("drag-over");
+            let canvas = canvas_clone.dyn_ref::<HtmlElement>().unwrap();
+            let _ = canvas.class_list().remove_1("drag-over");
 
             let data_transfer = event.data_transfer().unwrap();
             let seed_type = data_transfer.get_data("text/plain").unwrap();
@@ -586,6 +696,52 @@ pub fn start() -> Result<(), JsValue> {
     load_image("carrot.png", |img| {
         CARROT_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
+
+    // 添加自动保存定时器
+    {
+        let win = window().unwrap();
+        let closure = Closure::wrap(Box::new(move || {
+            let _ = save_game();
+        }) as Box<dyn FnMut()>);
+        win.set_interval_with_callback_and_timeout_and_arguments_0(
+            closure.as_ref().unchecked_ref(),
+            30000, // 每30秒保存一次
+        )?;
+        closure.forget();
+    }
+
+    // 尝试加载存档
+    let _ = load_game();
+
+    // 添加清空存档按钮
+    {
+        let document = window().unwrap().document().unwrap();
+        let clear_button = document.create_element("button")?;
+        clear_button.set_attribute("id", "clear-save")?;
+        clear_button.set_attribute("style", r#"
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            padding: 8px 16px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        "#)?;
+        clear_button.set_text_content(Some("清空存档"));
+        
+        let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
+            let _ = clear_save();
+            window().unwrap().location().reload().unwrap();
+        }) as Box<dyn FnMut(_)>);
+        clear_button.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+        
+        document.body().unwrap().append_child(&clear_button)?;
+    }
 
     Ok(())
 }
