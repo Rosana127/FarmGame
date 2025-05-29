@@ -59,12 +59,17 @@ pub fn plant(row: usize, col: usize, crop: String) {
     let success = FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type));
     if !success {
         web_sys::console::log_1(&"种植失败：没有足够的种子或地块不为空".into());
+    } else {
+        // 种植成功后立即保存
+        let _ = save_game();
     }
 }
 
 #[wasm_bindgen]
 pub fn harvest(row: usize, col: usize) {
     FARM.with(|farm| farm.borrow_mut().harvest(row, col));
+    // 收获后立即保存
+    let _ = save_game();
 }
 
 #[wasm_bindgen]
@@ -102,7 +107,7 @@ pub fn get_balance() -> u32 {
 
 #[wasm_bindgen]
 pub fn buy_seed(seed_type: String) -> bool {
-    SHOP.with(|shop| {
+    let result = SHOP.with(|shop| {
         let mut shop = shop.borrow_mut();
         if shop.buy_seed(&seed_type) {
             FARM.with(|farm| {
@@ -112,7 +117,12 @@ pub fn buy_seed(seed_type: String) -> bool {
         } else {
             false
         }
-    })
+    });
+    if result {
+        // 购买成功后立即保存
+        let _ = save_game();
+    }
+    result
 }
 
 #[wasm_bindgen]
@@ -121,6 +131,8 @@ pub fn sell_crop(crop_type: String) {
         let mut shop = shop.borrow_mut();
         shop.sell_crop(&crop_type);
     });
+    // 出售后立即保存
+    let _ = save_game();
 }
 
 #[wasm_bindgen]
@@ -475,7 +487,10 @@ pub fn try_sell_crop(crop_type: String) -> bool {
             sold = true;
         }
     });
-    if !sold {
+    if sold {
+        // 出售成功后立即保存
+        let _ = save_game();
+    } else {
         web_sys::console::log_1(&format!("Failed to sell {}: Not in inventory.", crop_type).into());
     }
     sold
@@ -696,22 +711,6 @@ pub fn start() -> Result<(), JsValue> {
     load_image("carrot.png", |img| {
         CARROT_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
-
-    // 添加自动保存定时器
-    {
-        let win = window().unwrap();
-        let closure = Closure::wrap(Box::new(move || {
-            let _ = save_game();
-        }) as Box<dyn FnMut()>);
-        win.set_interval_with_callback_and_timeout_and_arguments_0(
-            closure.as_ref().unchecked_ref(),
-            30000, // 每30秒保存一次
-        )?;
-        closure.forget();
-    }
-
-    // 尝试加载存档
-    let _ = load_game();
 
     // 添加清空存档按钮
     {

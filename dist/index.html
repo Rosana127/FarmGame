@@ -5,8 +5,8 @@
     <title>Farm Sim</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-60bada125b5c6cd5.js';
-const wasm = await init({ module_or_path: '/farm_sim-60bada125b5c6cd5_bg.wasm' });
+import init, * as bindings from '/farm_sim-75cb07c3d1d486f5.js';
+const wasm = await init({ module_or_path: '/farm_sim-75cb07c3d1d486f5_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -237,8 +237,14 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       #inventory-panel::-webkit-scrollbar-thumb:hover {
         background: #999;
       }
+
+      @keyframes fadeOut {
+        0% { opacity: 1; }
+        70% { opacity: 1; }
+        100% { opacity: 0; }
+      }
     </style>
-  <link rel="modulepreload" href="/farm_sim-60bada125b5c6cd5.js" crossorigin="anonymous" integrity="sha384-9JQm4ArbybEg62WvtDqmcnuRVzIT13Z+r6MCBgGCrs6YzYDCR/lobzydxwgpSGEQ"><link rel="preload" href="/farm_sim-60bada125b5c6cd5_bg.wasm" crossorigin="anonymous" integrity="sha384-Rw1t9ZSLrynfNUYBMw9flZNmLrFxu35aVogiIEgNCYUMCWOn8P/I8Q4sJYhOfYIL" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/farm_sim-75cb07c3d1d486f5.js" crossorigin="anonymous" integrity="sha384-LSzG2CiOJ4ffJjW2FmmtFWbAXKwSL6ieb9Ah3qGjjnPs6qWWsUaMQ5pn0N1MaMZj"><link rel="preload" href="/farm_sim-75cb07c3d1d486f5_bg.wasm" crossorigin="anonymous" integrity="sha384-+6zkNKUeilL4HAjMWro8a44Pr1AEGZTGNjL4Blk6cLx+3srd3qfMaPS7JIBtJOn9" as="fetch" type="application/wasm"></head>
   <body>
     <div id="inventory-panel">
       <div class="panel-tabs">
