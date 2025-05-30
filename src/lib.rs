@@ -60,7 +60,6 @@ pub fn plant(row: usize, col: usize, crop: String) {
     if !success {
         web_sys::console::log_1(&"种植失败：没有足够的种子或地块不为空".into());
     } else {
-        // 种植成功后立即保存
         let _ = save_game();
     }
 }
@@ -68,7 +67,6 @@ pub fn plant(row: usize, col: usize, crop: String) {
 #[wasm_bindgen]
 pub fn harvest(row: usize, col: usize) {
     FARM.with(|farm| farm.borrow_mut().harvest(row, col));
-    // 收获后立即保存
     let _ = save_game();
 }
 
@@ -119,7 +117,6 @@ pub fn buy_seed(seed_type: String) -> bool {
         }
     });
     if result {
-        // 购买成功后立即保存
         let _ = save_game();
     }
     result
@@ -131,7 +128,6 @@ pub fn sell_crop(crop_type: String) {
         let mut shop = shop.borrow_mut();
         shop.sell_crop(&crop_type);
     });
-    // 出售后立即保存
     let _ = save_game();
 }
 
@@ -169,13 +165,11 @@ pub fn load_game() -> Result<(), JsValue> {
         
         FARM.with(|farm| {
             let mut farm = farm.borrow_mut();
-            // 恢复农田状态
             for (row_idx, row) in game_state.farm_grid.iter().enumerate() {
                 for (col_idx, &state) in row.iter().enumerate() {
                     farm.grid[row_idx][col_idx].state = state;
                 }
             }
-            // 恢复背包状态
             farm.inventory.seeds = game_state.inventory_seeds;
             farm.inventory.crops = game_state.inventory_crops;
         });
@@ -193,7 +187,6 @@ pub fn clear_save() -> Result<(), JsValue> {
     let storage = window().unwrap().local_storage()?.unwrap();
     storage.remove_item("farm_game_state")?;
     
-    // 重置游戏状态
     FARM.with(|farm| {
         let mut farm = farm.borrow_mut();
         farm.grid = vec![vec![tile::Tile { state: tile::TileState::Empty }; 10]; 10];
@@ -226,7 +219,6 @@ fn start_render_loop() -> Result<(), JsValue> {
     let closure = Closure::wrap(Box::new(move || {
         tick();
 
-        // 每60秒自动保存一次
         static mut TICK_COUNT: u32 = 0;
         unsafe {
             TICK_COUNT += 1;
@@ -236,12 +228,11 @@ fn start_render_loop() -> Result<(), JsValue> {
             }
         }
 
-        // 绘制农田网格
         for row in 0..10 {
             for col in 0..10 {
                 let state = get_state(row, col);
 
-                closure_ctx.set_fill_style_str("#ddd");
+                closure_ctx.set_fill_style(&JsValue::from_str("#ddd"));
                 closure_ctx.fill_rect(
                     (col * size) as f64,
                     (row * size) as f64,
@@ -271,7 +262,6 @@ fn start_render_loop() -> Result<(), JsValue> {
             }
         }
 
-        // 更新背包显示
         if let Some(inventory_el) = document.get_element_by_id("inventory") {
             let inventory_el = inventory_el.dyn_into::<HtmlElement>().unwrap();
             if inventory_el.class_list().contains("active") {
@@ -322,7 +312,6 @@ fn start_render_loop() -> Result<(), JsValue> {
 
                 inventory_el.set_inner_html(&inventory_html);
 
-                // 添加拖拽事件监听器
                 let seed_items = inventory_el.get_elements_by_class_name("inventory-item");
                 for i in 0..seed_items.length() {
                     if let Some(item) = seed_items.get_with_index(i) {
@@ -351,7 +340,6 @@ fn start_render_loop() -> Result<(), JsValue> {
             }
         }
 
-        // 更新商城显示
         if let Some(shop_el) = document.get_element_by_id("shop-items") {
             let balance = SHOP.with(|shop| shop.borrow().get_balance());
             let shop_html = format!(
@@ -462,7 +450,7 @@ fn load_image(src: &str, setter: fn(HtmlImageElement)) -> Result<(), JsValue> {
         LOADED_COUNT.with(|count| {
             let mut count = count.borrow_mut();
             *count += 1;
-            if *count == 4 { // 仅加载 4 张图片（移除 bag.png）
+            if *count == 4 {
                 start_render_loop().unwrap();
             }
         });
@@ -488,7 +476,6 @@ pub fn try_sell_crop(crop_type: String) -> bool {
         }
     });
     if sold {
-        // 出售成功后立即保存
         let _ = save_game();
     } else {
         web_sys::console::log_1(&format!("Failed to sell {}: Not in inventory.", crop_type).into());
@@ -498,7 +485,6 @@ pub fn try_sell_crop(crop_type: String) -> bool {
 
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
-    // 首先尝试加载存档
     let _ = load_game();
 
     let win = window().ok_or_else(|| JsValue::from_str("无法获取 window"))?;
@@ -508,6 +494,22 @@ pub fn start() -> Result<(), JsValue> {
         .ok_or_else(|| JsValue::from_str("找不到 canvas 元素"))?;
     let canvas: HtmlCanvasElement = canvas.dyn_into()?;
 
+    // 创建 tooltip 元素
+    let tooltip = document.create_element("div")?.dyn_into::<HtmlElement>()?;
+    tooltip.set_id("crop-tooltip");
+    tooltip.set_attribute("style", r#"
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        pointer-events: none;
+        z-index: 1000;
+        display: none;
+    "#)?;
+    document.body().unwrap().append_child(&tooltip)?;
+
     // Canvas 点击事件：处理种植/收获
     {
         let size = 40;
@@ -516,7 +518,6 @@ pub fn start() -> Result<(), JsValue> {
             let col = (event.offset_x() / size as i32) as usize;
             let row = (event.offset_y() / size as i32) as usize;
 
-            // 处理农田网格点击
             let state = get_state(row, col);
             if state.starts_with("empty") {
                 SELECTED_CROP.with(|selected| {
@@ -527,6 +528,86 @@ pub fn start() -> Result<(), JsValue> {
             }
         }) as Box<dyn FnMut(_)>);
         canvas.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+    }
+
+    // Canvas 鼠标悬停事件：显示作物信息
+    {
+        let size = 40;
+        let canvas = canvas.clone();
+        let tooltip = tooltip.clone();
+        let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
+            let col = (event.offset_x() / size as i32) as usize;
+            let row = (event.offset_y() / size as i32) as usize;
+
+            let state = get_state(row, col);
+            let tooltip_text = match state.as_str() {
+                "empty" => "".to_string(),
+                "planted_wheat" => "小麦 - 生长中".to_string(),
+                "planted_corn" => "玉米 - 生长中".to_string(),
+                "planted_carrot" => "胡萝卜 - 生长中".to_string(),
+                "mature_wheat" => "小麦 - 可收获".to_string(),
+                "mature_corn" => "玉米 - 可收获".to_string(),
+                "mature_carrot" => "胡萝卜 - 可收获".to_string(),
+                _ => "".to_string(),
+            };
+
+            if !tooltip_text.is_empty() {
+                tooltip.set_inner_html(&tooltip_text);
+                let x = event.client_x() + 10; // 偏移以避免遮挡鼠标
+                let y = event.client_y() + 10;
+                tooltip.set_attribute("style", &format!(
+                    r#"
+                    position: absolute;
+                    background: rgba(0, 0, 0, 0.8);
+                    color: white;
+                    padding: 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    pointer-events: none;
+                    z-index: 1000;
+                    display: block;
+                    left: {}px;
+                    top: {}px;
+                    "#,
+                    x, y
+                )).unwrap();
+            } else {
+                tooltip.set_attribute("style", r#"
+                    position: absolute;
+                    background: rgba(0, 0, 0, 0.8);
+                    color: white;
+                    padding: 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    pointer-events: none;
+                    z-index: 1000;
+                    display: none;
+                "#).unwrap();
+            }
+        }) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+    }
+
+    // Canvas 鼠标离开事件：隐藏 tooltip
+    {
+        let canvas = canvas.clone();
+        let tooltip = tooltip.clone();
+        let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
+            tooltip.set_attribute("style", r#"
+                position: absolute;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                pointer-events: none;
+                z-index: 1000;
+                display: none;
+            "#).unwrap();
+        }) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("mouseout", closure.as_ref().unchecked_ref())?;
         closure.forget();
     }
 
@@ -560,7 +641,6 @@ pub fn start() -> Result<(), JsValue> {
                 let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
                     let document = window().unwrap().document().unwrap();
                     
-                    // 移除所有标签的active类
                     let tabs = document.get_elements_by_class_name("panel-tab");
                     for j in 0..tabs.length() {
                         if let Some(t) = tabs.get_with_index(j) {
@@ -569,7 +649,6 @@ pub fn start() -> Result<(), JsValue> {
                         }
                     }
                     
-                    // 隐藏所有面板内容
                     if let Some(inventory) = document.get_element_by_id("inventory") {
                         let inventory = inventory.dyn_into::<HtmlElement>().unwrap();
                         let _ = inventory.set_attribute("style", "display: none");
@@ -579,10 +658,8 @@ pub fn start() -> Result<(), JsValue> {
                         let _ = shop.set_attribute("style", "display: none");
                     }
                     
-                    // 添加active类到当前标签
                     let _ = tab_clone.class_list().add_1("active");
                     
-                    // 显示对应的面板内容
                     let tab_name = tab_clone.get_attribute("data-tab").unwrap_or_default();
                     match tab_name.as_str() {
                         "inventory" => {
@@ -688,7 +765,6 @@ pub fn start() -> Result<(), JsValue> {
 
             let success = FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type));
             if success {
-                // 拖拽种植成功后立即保存
                 let _ = save_game();
             } else {
                 web_sys::console::log_1(&"种植失败：没有足够的种子或地块不为空".into());
@@ -697,7 +773,7 @@ pub fn start() -> Result<(), JsValue> {
         canvas.add_event_listener_with_callback("drop", closure.as_ref().unchecked_ref())?;
         closure.forget();
     }
-
+    
     // 加载图片
     load_image("seed.png", |img| {
         SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
