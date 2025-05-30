@@ -1,0 +1,81 @@
+use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Inventory {
+    pub seeds: HashMap<String, u32>,
+    pub crops: HashMap<String, u32>,
+    pub pesticide: u32,
+}
+
+impl Inventory {
+    pub fn new() -> Self {
+        Self {
+            seeds: HashMap::new(),
+            crops: HashMap::new(),
+            pesticide: 0,
+        }
+    }
+
+    pub fn add_seed(&mut self, seed: &str) {
+        *self.seeds.entry(seed.to_string()).or_insert(0) += 1;
+    }
+
+    pub fn add_crop(&mut self, crop: &str) {
+        *self.crops.entry(crop.to_string()).or_insert(0) += 1;
+    }
+
+    pub fn remove_seed(&mut self, seed: &str) -> bool {
+        if let Some(count) = self.seeds.get_mut(seed) {
+            if *count > 0 {
+                *count -= 1;
+                return true;
+            }
+        }
+        false
+    }
+    // 在 src/inventory.rs 文件中
+    pub fn remove_crop(&mut self, crop: &str) -> bool { //
+        if let Some(count) = self.crops.get_mut(crop) { //
+            if *count > 0 { //
+                *count -= 1; //
+                if *count == 0 { //
+                    self.crops.remove(crop); // 可选: 如果数量为0，则移除条目
+                }
+                return true; //
+            }
+        }
+        false //
+    }
+
+    // 修改 get_items 函数，返回三类内容：种子、作物、杀虫剂数量
+    pub fn get_items(&self) -> (
+        HashMap<String, u32>,
+        HashMap<String, u32>,
+        u32,
+    ) {
+        let seeds = self.seeds.clone();
+        let crops = self.crops.clone();
+        let pesticide = self.pesticide;
+    
+        (seeds, crops, pesticide)
+    }
+    
+    
+
+
+    pub fn add_pesticide(&mut self, amount: u32) {
+        self.pesticide += amount;
+    }
+    
+    pub fn remove_pesticide(&mut self) -> bool {
+        if self.pesticide > 0 {
+            self.pesticide -= 1;
+            true
+        } else {
+            false
+        }
+    }
+    
+    
+}

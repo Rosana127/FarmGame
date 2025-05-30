@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Farm Sim</title>
+    <link data-trunk rel="rust" href="Cargo.toml" />
+    <!-- 添加种子、作物和背包图片，Trunk会自动复制这些资源 -->
+    <link data-trunk rel="copy-file" href="assets/seed.png" />
+    <link data-trunk rel="copy-file" href="assets/wheat.png" />
+    <link data-trunk rel="copy-file" href="assets/corn.png" />
+    <link data-trunk rel="copy-file" href="assets/carrot.png" />
+    <link data-trunk rel="copy-file" href="assets/bag.png" />
+    <link data-trunk rel="copy-file" href="assets/shop.jpg" />
+    <link data-trunk rel="copy-file" href="assets/lock.png">
+    <link data-trunk rel="copy-file" href="assets/shovel.png">
+    <link data-trunk rel="copy-file" href="assets/bottle.png">
+    <link data-trunk rel="copy-file" href="assets/pest.png">
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      #canvas {
+        border: 1px solid #ccc;
+        position: relative;
+      }
+
+      #inventory-panel {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%) translateX(120%);
+        width: 300px;
+        max-height: 80vh;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.15);
+        z-index: 100;
+        overflow-y: auto;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+      }
+
+      #inventory-panel.show {
+        transform: translateY(-50%) translateX(0);
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+      }
+
+      #bag-icon {
+        position: absolute;
+        bottom: 90px;
+        left: 10px;
+        cursor: pointer;
+        width: 32px;
+        height: 32px;
+      }
+
+      .panel-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+      }
+
+      .panel-tab {
+        padding: 8px 16px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 1rem;
+        color: #666;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+      }
+
+      .panel-tab:hover {
+        background: #f5f5f5;
+      }
+
+      .panel-tab.active {
+        background: #4CAF50;
+        color: white;
+      }
+
+      .panel-content {
+        display: none;
+      }
+
+      .panel-content.active {
+        display: block;
+      }
+
+      #inventory {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        padding: 5px;
+      }
+
+      .inventory-section h3 {
+        margin: 0 0 8px 0;
+        text-align: center;
+        font-size: 0.9rem;
+        color: #333;
+        font-weight: 600;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 6px;
+      }
+
+      .inventory-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+      }
+
+      .inventory-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: #f8f8f8;
+        padding: 8px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+        width: 70px;
+      }
+
+      .inventory-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      }
+
+      .inventory-item img {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+        margin-bottom: 4px;
+      }
+
+      .inventory-item button {
+        width: 100%;
+        margin-top: 6px;
+        padding: 4px 8px;
+        font-size: 0.75rem;
+        background: #FFC107;
+        color: #333;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      }
+
+      .inventory-item button:hover {
+        background: #ffa000;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      }
+
+      .balance {
+        font-size: 1.2em;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-align: center;
+        background: #FFC107;
+        color: #333;
+        padding: 8px;
+        border-radius: 4px;
+      }
+
+      .shop-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 15px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+
+      .shop-item img {
+        width: 32px;
+        height: 32px;
+        margin-bottom: 5px;
+      }
+
+      .shop-item button {
+        margin-top: 5px;
+        padding: 5px 10px;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .shop-item button:hover {
+        background: #45a049;
+      }
+
+      #inventory-panel::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      #inventory-panel::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+      }
+
+      #inventory-panel::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 3px;
+      }
+
+      #inventory-panel::-webkit-scrollbar-thumb:hover {
+        background: #999;
+      }
+
+      @keyframes fadeOut {
+        0% { opacity: 1; }
+        70% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="inventory-panel">
+      <div class="panel-tabs">
+        <button class="panel-tab active" data-tab="inventory">背包</button>
+        <button class="panel-tab" data-tab="shop">商城</button>
+      </div>
+      <div id="inventory" class="panel-content active"></div>
+      <div id="shop-items" class="panel-content"></div>
+    </div>
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <img id="shovel-tool" src="shovel.png" draggable="true" title="拖动铲子清除作物"
+     style="position: absolute; bottom: 130px; left: 10px; width: 40px; height: 40px; cursor: grab; z-index: 1000;" />
+    <img id="bag-icon" src="bag.png" />
+  </body>
+</html>
