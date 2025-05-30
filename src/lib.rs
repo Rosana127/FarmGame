@@ -48,6 +48,11 @@ pub fn tick() {
 }
 
 #[wasm_bindgen]
+pub fn get_crop_info(row: usize, col: usize) -> String {
+    FARM.with(|farm| farm.borrow().get_crop_info(row, col))
+}
+
+#[wasm_bindgen]
 pub fn plant(row: usize, col: usize, crop: String) {
     let crop_type = match crop.as_str() {
         "wheat" => CropType::Wheat,
@@ -495,41 +500,21 @@ pub fn start() -> Result<(), JsValue> {
     let canvas: HtmlCanvasElement = canvas.dyn_into()?;
 
     // 创建 tooltip 元素
+    // 创建 tooltip 元素 - 修改版本
     let tooltip = document.create_element("div")?.dyn_into::<HtmlElement>()?;
     tooltip.set_id("crop-tooltip");
     tooltip.set_attribute("style", r#"
-        position: absolute;
+        position: fixed;  /* 使用 fixed 而不是 absolute */
         background: rgba(0, 0, 0, 0.8);
         color: white;
         padding: 8px;
         border-radius: 4px;
         font-size: 12px;
-        pointer-events: none;
+        pointer-events: none;  /* 确保不阻挡点击 */
         z-index: 1000;
         display: none;
     "#)?;
     document.body().unwrap().append_child(&tooltip)?;
-
-    // Canvas 点击事件：处理种植/收获
-    {
-        let size = 40;
-        let canvas = canvas.clone();
-        let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
-            let col = (event.offset_x() / size as i32) as usize;
-            let row = (event.offset_y() / size as i32) as usize;
-
-            let state = get_state(row, col);
-            if state.starts_with("empty") {
-                SELECTED_CROP.with(|selected| {
-                    FARM.with(|farm| farm.borrow_mut().plant(row, col, *selected.borrow()));
-                });
-            } else if state.starts_with("mature") {
-                harvest(row, col);
-            }
-        }) as Box<dyn FnMut(_)>);
-        canvas.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
-        closure.forget();
-    }
 
     // Canvas 鼠标悬停事件：显示作物信息
     {
@@ -540,77 +525,52 @@ pub fn start() -> Result<(), JsValue> {
             let col = (event.offset_x() / size as i32) as usize;
             let row = (event.offset_y() / size as i32) as usize;
 
-            let state = get_state(row, col);
-            let tooltip_text = match state.as_str() {
-                "empty" => "".to_string(),
-                "planted_wheat" => "小麦 - 生长中".to_string(),
-                "planted_corn" => "玉米 - 生长中".to_string(),
-                "planted_carrot" => "胡萝卜 - 生长中".to_string(),
-                "mature_wheat" => "小麦 - 可收获".to_string(),
-                "mature_corn" => "玉米 - 可收获".to_string(),
-                "mature_carrot" => "胡萝卜 - 可收获".to_string(),
-                _ => "".to_string(),
-            };
-
-            if !tooltip_text.is_empty() {
-                tooltip.set_inner_html(&tooltip_text);
-                let x = event.client_x() + 10; // 偏移以避免遮挡鼠标
-                let y = event.client_y() + 10;
-                tooltip.set_attribute("style", &format!(
-                    r#"
-                    position: absolute;
-                    background: rgba(0, 0, 0, 0.8);
-                    color: white;
-                    padding: 8px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                    pointer-events: none;
-                    z-index: 1000;
-                    display: block;
-                    left: {}px;
-                    top: {}px;
-                    "#,
-                    x, y
-                )).unwrap();
-            } else {
-                tooltip.set_attribute("style", r#"
-                    position: absolute;
-                    background: rgba(0, 0, 0, 0.8);
-                    color: white;
-                    padding: 8px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                    pointer-events: none;
-                    z-index: 1000;
-                    display: none;
-                "#).unwrap();
+            // 使用新的 get_crop_info 方法
+            let crop_info_json = get_crop_info(row, col);
+            
+            // 解析 JSON 获取消息
+            if let Ok(info) = serde_json::from_str::<serde_json::Value>(&crop_info_json) {
+                let message = info["message"].as_str().unwrap_or("");
+                
+                if !message.is_empty() && info["state"] != "empty" {
+                    tooltip.set_inner_html(message);
+                    let x = event.client_x() + 10;
+                    let y = event.client_y() + 10;
+                    tooltip.set_attribute("style", &format!(
+                        r#"
+                        position: absolute;
+                        background: rgba(0, 0, 0, 0.9);
+                        color: white;
+                        padding: 10px;
+                        border-radius: 6px;
+                        font-size: 13px;
+                        pointer-events: none;
+                        z-index: 1000;
+                        display: block;
+                        left: {}px;
+                        top: {}px;
+                        max-width: 200px;
+                        "#,
+                        x, y
+                    )).unwrap();
+                } else {
+                    tooltip.set_attribute("style", r#"
+                        position: absolute;
+                        background: rgba(0, 0, 0, 0.8);
+                        color: white;
+                        padding: 8px;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        pointer-events: none;
+                        z-index: 1000;
+                        display: none;
+                    "#).unwrap();
+                }
             }
         }) as Box<dyn FnMut(_)>);
         canvas.add_event_listener_with_callback("mousemove", closure.as_ref().unchecked_ref())?;
         closure.forget();
     }
-
-    // Canvas 鼠标离开事件：隐藏 tooltip
-    {
-        let canvas = canvas.clone();
-        let tooltip = tooltip.clone();
-        let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
-            tooltip.set_attribute("style", r#"
-                position: absolute;
-                background: rgba(0, 0, 0, 0.8);
-                color: white;
-                padding: 8px;
-                border-radius: 4px;
-                font-size: 12px;
-                pointer-events: none;
-                z-index: 1000;
-                display: none;
-            "#).unwrap();
-        }) as Box<dyn FnMut(_)>);
-        canvas.add_event_listener_with_callback("mouseout", closure.as_ref().unchecked_ref())?;
-        closure.forget();
-    }
-
     // 背包图标点击事件
     {
         let bag_icon = document.get_element_by_id("bag-icon")
@@ -683,7 +643,7 @@ pub fn start() -> Result<(), JsValue> {
         }
     }
 
-    // 点击事件处理
+    // 点击事件处理 - 修改版本
     {
         let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
             let document = web_sys::window().unwrap().document().unwrap();
@@ -692,28 +652,50 @@ pub fn start() -> Result<(), JsValue> {
                 .unwrap()
                 .dyn_into::<Element>()
                 .unwrap();
-    
+
             let is_inside_panel = click_target.closest("#inventory-panel").unwrap().is_some();
             let is_bag_icon = click_target.closest("#bag-icon").unwrap().is_some();
             let is_canvas = click_target.closest("#canvas").unwrap().is_some();
+            // 添加 tooltip 检测
+            let is_tooltip = click_target.closest("#crop-tooltip").unwrap().is_some() 
+                            || click_target.id() == "crop-tooltip";
             
-            if !is_inside_panel && !is_bag_icon && !is_canvas {
+            // 只有在点击了面板外部且不是canvas、bag图标或tooltip时才关闭面板
+            if !is_inside_panel && !is_bag_icon && !is_canvas && !is_tooltip {
                 if let Some(panel_el) = document.get_element_by_id("inventory-panel") {
                     let panel = panel_el.dyn_into::<HtmlElement>().unwrap();
                     let _ = panel.class_list().remove_1("show");
                 }
             }
         }) as Box<dyn FnMut(_)>);
-    
+
         web_sys::window()
             .unwrap()
             .document()
             .unwrap()
             .add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
-    
+
         closure.forget();
     }
 
+    // Canvas 点击事件：收获作物
+    {
+        let canvas = canvas.clone();
+        let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
+            let size = 40;
+            let col = (event.offset_x() / size as i32) as usize;
+            let row = (event.offset_y() / size as i32) as usize;
+            
+            // 检查是否为成熟作物
+            let state = get_state(row, col);
+            if state.starts_with("mature_") {
+                harvest(row, col);
+                web_sys::console::log_1(&format!("收获了位置 ({}, {})", row, col).into());
+            }
+        }) as Box<dyn FnMut(_)>);
+        canvas.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+    }
     // 添加拖拽相关事件处理
     {
         let canvas_rc = Rc::new(canvas.clone());

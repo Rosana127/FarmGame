@@ -67,11 +67,71 @@ impl Farm {
         self.inventory.get_items()
     }
 
-    fn get_growth_time(crop: CropType) -> u32 {
+    pub fn get_growth_time(crop: CropType) -> u32 {
         match crop {
             CropType::Carrot => 3,
             CropType::Corn => 10,
             CropType::Wheat => 5,
         }
     }
+        pub fn get_crop_info(&self, row: usize, col: usize) -> String {
+        let tile = &self.grid[row][col];
+        
+        match tile.state {
+            TileState::Empty => {
+                serde_json::json!({
+                    "state": "empty",
+                    "message": "空地 - 可以种植"
+                }).to_string()
+            }
+            TileState::Planted { crop, timer } => {
+                let crop_name = match crop {
+                    CropType::Wheat => "小麦",
+                    CropType::Corn => "玉米", 
+                    CropType::Carrot => "胡萝卜",
+                };
+                
+                let total_time = Self::get_growth_time(crop);
+                let progress = total_time - timer;
+                let expected_profit = Self::get_crop_value(crop);
+                
+                serde_json::json!({
+                    "state": "growing",
+                    "crop_name": crop_name,
+                    "progress": progress,
+                    "total_time": total_time,
+                    "remaining_days": timer,
+                    "expected_profit": expected_profit,
+                    "message": format!("{} - 生长中 {}/{} 天，还需 {} 天成熟", 
+                              crop_name, progress, total_time, timer)
+                }).to_string()
+            }
+            TileState::Mature { crop } => {
+                let crop_name = match crop {
+                    CropType::Wheat => "小麦",
+                    CropType::Corn => "玉米",
+                    CropType::Carrot => "胡萝卜",
+                };
+                
+                let profit = Self::get_crop_value(crop);
+                
+                serde_json::json!({
+                    "state": "mature", 
+                    "crop_name": crop_name,
+                    "profit": profit,
+                    "message": format!("{} - 已成熟，可收获 (价值: {}金币)", crop_name, profit)
+                }).to_string()
+            }
+        }
+    }
+
+    // 添加作物价值计算方法
+    fn get_crop_value(crop: CropType) -> u32 {
+        match crop {
+            CropType::Wheat => 15,   // 小麦卖15金币
+            CropType::Corn => 30,    // 玉米卖30金币  
+            CropType::Carrot => 20,  // 胡萝卜卖20金币
+        }
+    }
+
 }
