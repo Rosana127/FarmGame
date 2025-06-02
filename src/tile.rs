@@ -19,3 +19,21 @@ pub struct Tile {
     pub state: TileState,
 }
 
+impl CropType {
+    pub fn sell_price(&self) -> u32 {
+        match self {
+            CropType::Wheat => 15,
+            CropType::Corn => 25, 
+            CropType::Carrot => 20,
+        }
+    }
+    
+    pub fn growth_time(&self) -> u64 {
+        match self {
+            CropType::Wheat => 10,
+            CropType::Corn => 15,
+            CropType::Carrot => 12,
+        }
+    }
+}
+

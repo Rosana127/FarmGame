@@ -226,7 +226,10 @@
       #inventory-panel::-webkit-scrollbar-thumb:hover {
         background: #999;
       }
-
+      @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+      }
       @keyframes fadeOut {
         0% { opacity: 1; }
         70% { opacity: 1; }

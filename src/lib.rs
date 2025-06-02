@@ -504,15 +504,21 @@ pub fn start() -> Result<(), JsValue> {
     let tooltip = document.create_element("div")?.dyn_into::<HtmlElement>()?;
     tooltip.set_id("crop-tooltip");
     tooltip.set_attribute("style", r#"
-        position: fixed;  /* 使用 fixed 而不是 absolute */
-        background: rgba(0, 0, 0, 0.8);
+        position: fixed;
+        background: linear-gradient(145deg, rgba(20, 20, 40, 0.95), rgba(40, 40, 80, 0.95));
         color: white;
-        padding: 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        pointer-events: none;  /* 确保不阻挡点击 */
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        pointer-events: none;
         z-index: 1000;
         display: none;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        max-width: 250px;
+        line-height: 1.4;
+        white-space: pre-line;
     "#)?;
     document.body().unwrap().append_child(&tooltip)?;
 
@@ -538,18 +544,24 @@ pub fn start() -> Result<(), JsValue> {
                     let y = event.client_y() + 10;
                     tooltip.set_attribute("style", &format!(
                         r#"
-                        position: absolute;
-                        background: rgba(0, 0, 0, 0.9);
+                        position: fixed;
+                        background: linear-gradient(145deg, rgba(20, 20, 40, 0.95), rgba(40, 40, 80, 0.95));
                         color: white;
-                        padding: 10px;
-                        border-radius: 6px;
+                        padding: 12px 16px;
+                        border-radius: 8px;
                         font-size: 13px;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                         pointer-events: none;
                         z-index: 1000;
                         display: block;
                         left: {}px;
                         top: {}px;
-                        max-width: 200px;
+                        max-width: 250px;
+                        line-height: 1.4;
+                        white-space: pre-line;
+                        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+                        animation: fadeIn 0.2s ease-in-out;
                         "#,
                         x, y
                     )).unwrap();

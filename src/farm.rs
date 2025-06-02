@@ -4,6 +4,8 @@ use crate::inventory::Inventory;
 pub struct Farm {
     pub grid: Vec<Vec<Tile>>,
     pub inventory: Inventory,
+    pub rows: usize,  // 添加 rows 字段
+    pub cols: usize,  // 添加 cols 字段
 }
 
 impl Farm {
@@ -12,6 +14,8 @@ impl Farm {
         Self {
             grid: vec![row; rows],
             inventory: Inventory::new(),
+            rows,  // 初始化 rows
+            cols,  // 初始化 cols
         }
     }
 
@@ -29,25 +33,22 @@ impl Farm {
         }
     }
 
-    // 在 src/farm.rs 文件中
-    pub fn plant(&mut self, row: usize, col: usize, crop: CropType) -> bool { // 返回 bool 表示成功与否
-        let crop_name = match crop { //
-            CropType::Wheat => "wheat", //
-            CropType::Corn => "corn", //
-            CropType::Carrot => "carrot", //
+    pub fn plant(&mut self, row: usize, col: usize, crop: CropType) -> bool {
+        let crop_name = match crop {
+            CropType::Wheat => "wheat",
+            CropType::Corn => "corn",
+            CropType::Carrot => "carrot",
         };
 
-        if self.grid[row][col].state == TileState::Empty { //
-            if self.inventory.remove_seed(crop_name) { // 检查并移除种子
-                let timer = Self::get_growth_time(crop); //
-                self.grid[row][col].state = TileState::Planted { crop, timer }; //
-                return true; // 种植成功
+        if self.grid[row][col].state == TileState::Empty {
+            if self.inventory.remove_seed(crop_name) {
+                let timer = Self::get_growth_time(crop);
+                self.grid[row][col].state = TileState::Planted { crop, timer };
+                return true;
             } else {
-                // 没有可用的种子
                 return false;
             }
         }
-        // 地块不为空或其他前置条件未满足
         false
     }
 
@@ -74,52 +75,71 @@ impl Farm {
             CropType::Wheat => 5,
         }
     }
-        pub fn get_crop_info(&self, row: usize, col: usize) -> String {
+
+    // 修复后的 get_crop_info 方法
+    pub fn get_crop_info(&self, row: usize, col: usize) -> String {
+        if row >= self.rows || col >= self.cols {
+            return serde_json::json!({
+                "state": "invalid",
+                "message": ""
+            }).to_string();
+        }
+
         let tile = &self.grid[row][col];
-        
-        match tile.state {
+        match &tile.state {
             TileState::Empty => {
                 serde_json::json!({
                     "state": "empty",
-                    "message": "空地 - 可以种植"
+                    "message": "空地 - 可以种植作物",
+                    "canPlant": true
                 }).to_string()
-            }
+            },
             TileState::Planted { crop, timer } => {
+                let growth_time = Self::get_growth_time(*crop);
+                let elapsed = growth_time - timer;
+                let remaining = *timer;
+                
                 let crop_name = match crop {
                     CropType::Wheat => "小麦",
                     CropType::Corn => "玉米", 
                     CropType::Carrot => "胡萝卜",
                 };
                 
-                let total_time = Self::get_growth_time(crop);
-                let progress = total_time - timer;
-                let expected_profit = Self::get_crop_value(crop);
+                let progress = (elapsed as f64 / growth_time as f64 * 100.0).min(100.0);
                 
                 serde_json::json!({
-                    "state": "growing",
-                    "crop_name": crop_name,
+                    "state": "planted",
+                    "crop": crop_name,
+                    "message": format!(
+                        "🌱 {} 幼苗\n⏱️ 成长进度: {:.1}%\n⏰ 剩余时间: {}秒\n💰 预期收益: {}金币", 
+                        crop_name, 
+                        progress,
+                        remaining,
+                        Self::get_crop_value(*crop)
+                    ),
                     "progress": progress,
-                    "total_time": total_time,
-                    "remaining_days": timer,
-                    "expected_profit": expected_profit,
-                    "message": format!("{} - 生长中 {}/{} 天，还需 {} 天成熟", 
-                              crop_name, progress, total_time, timer)
+                    "remaining_time": remaining,
+                    "expected_profit": Self::get_crop_value(*crop)
                 }).to_string()
-            }
+            },
             TileState::Mature { crop } => {
                 let crop_name = match crop {
                     CropType::Wheat => "小麦",
                     CropType::Corn => "玉米",
-                    CropType::Carrot => "胡萝卜",
+                    CropType::Carrot => "胡萝卜", 
                 };
                 
-                let profit = Self::get_crop_value(crop);
-                
                 serde_json::json!({
-                    "state": "mature", 
-                    "crop_name": crop_name,
-                    "profit": profit,
-                    "message": format!("{} - 已成熟，可收获 (价值: {}金币)", crop_name, profit)
+                    "state": "mature",
+                    "crop": crop_name,
+                    "message": format!(
+                        "✨ {} 已成熟！\n🎯 点击收获\n💰 价值: {}金币\n📊 生长周期: {}秒", 
+                        crop_name,
+                        Self::get_crop_value(*crop),
+                        Self::get_growth_time(*crop)
+                    ),
+                    "sell_price": Self::get_crop_value(*crop),
+                    "growth_time": Self::get_growth_time(*crop)
                 }).to_string()
             }
         }
@@ -133,5 +153,4 @@ impl Farm {
             CropType::Carrot => 20,  // 胡萝卜卖20金币
         }
     }
-
 }
