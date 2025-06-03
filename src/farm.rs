@@ -40,16 +40,25 @@ impl Farm {
             CropType::Carrot => "carrot",
         };
 
-        if self.grid[row][col].state == TileState::Empty {
-            if self.inventory.remove_seed(crop_name) {
-                let timer = Self::get_growth_time(crop);
-                self.grid[row][col].state = TileState::Planted { crop, timer };
-                return true;
-            } else {
-                return false;
-            }
+        // 检查位置是否有效
+        if row >= self.rows || col >= self.cols {
+            return false;
         }
-        false
+
+        // 检查地块是否为空
+        if self.grid[row][col].state != TileState::Empty {
+            return false;
+        }
+
+        // 检查是否有足够的种子
+        if !self.inventory.remove_seed(crop_name) {
+            return false;
+        }
+
+        // 种植作物
+        let timer = Self::get_growth_time(crop);
+        self.grid[row][col].state = TileState::Planted { crop, timer };
+        true
     }
 
     pub fn harvest(&mut self, row: usize, col: usize) {

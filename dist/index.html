@@ -5,8 +5,8 @@
     <title>🌾 Farm Sim Paradise</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-daaf197d11d5fbad.js';
-const wasm = await init({ module_or_path: '/farm_sim-daaf197d11d5fbad_bg.wasm' });
+import init, * as bindings from '/farm_sim-42bc965b22c4058f.js';
+const wasm = await init({ module_or_path: '/farm_sim-42bc965b22c4058f_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -537,8 +537,89 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
           height: 28px;
         }
       }
+
+      /* 任务面板和任务卡片样式 */
+      #task-list {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 10px 0;
+      }
+      .task-card {
+        background: rgba(255,255,255,0.95);
+        border-radius: 16px;
+        box-shadow: 0 4px 16px rgba(76,175,80,0.10);
+        border: 1.5px solid var(--glass-border);
+        padding: 18px 20px 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        position: relative;
+        transition: box-shadow 0.3s;
+        animation: fadeIn 0.4s;
+      }
+      .task-card.completed {
+        background: linear-gradient(90deg, #e0ffe0 60%, #fffbe0 100%);
+        border-color: #a5d6a7;
+        opacity: 0.85;
+      }
+      .task-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #388e3c;
+        margin-bottom: 2px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .task-desc {
+        font-size: 0.95rem;
+        color: #795548;
+        margin-bottom: 6px;
+      }
+      .task-reward {
+        font-size: 0.92rem;
+        color: #ff9800;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .task-progress-bar {
+        width: 100%;
+        height: 14px;
+        background: #f1f8e9;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 4px;
+        border: 1px solid #c8e6c9;
+      }
+      .task-progress-inner {
+        height: 100%;
+        background: linear-gradient(90deg, #81c784, #ffd54f);
+        border-radius: 8px;
+        transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+      }
+      .task-btn {
+        margin-top: 6px;
+        padding: 6px 18px;
+        background: linear-gradient(90deg, #ffd54f, #81c784);
+        color: #333;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(255,193,7,0.10);
+        transition: background 0.2s, transform 0.2s;
+      }
+      .task-btn:disabled {
+        background: #eee;
+        color: #aaa;
+        cursor: not-allowed;
+      }
     </style>
-  <link rel="modulepreload" href="/farm_sim-daaf197d11d5fbad.js" crossorigin="anonymous" integrity="sha384-zOR6uuXVKhWutXo52KN6MbaJyELKl6lA5YqMmykJ4P4XqCj41ZvgpdswhEY6Oz6T"><link rel="preload" href="/farm_sim-daaf197d11d5fbad_bg.wasm" crossorigin="anonymous" integrity="sha384-G9ry9eWDx+qrkpb2OX399EJlp+9xHYY/u2/KbbZ6pqj7M2PlKpLWwY7Kz3iAXVM9" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/farm_sim-42bc965b22c4058f.js" crossorigin="anonymous" integrity="sha384-zm+XaeZuAX0Q8NtOBMQG5W8525fU0LdQTcRIPMpTYyEl9sWs5+ZQbxJEb1rfGff7"><link rel="preload" href="/farm_sim-42bc965b22c4058f_bg.wasm" crossorigin="anonymous" integrity="sha384-HWcxLOcBaS6s1v6MIaUfMJTlQYat4FZkAS30IJwW6DjOGehjw6mxZkCHfUhyXXWS" as="fetch" type="application/wasm"></head>
   <body>
     <div class="game-header">
       <h1 class="game-title">🌾 Farm Sim Paradise</h1>
@@ -550,9 +631,11 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         <div class="panel-tabs">
           <button class="panel-tab active" data-tab="inventory">🎒 背包</button>
           <button class="panel-tab" data-tab="shop">🏪 商城</button>
+          <button class="panel-tab" data-tab="tasks">📝 任务</button>
         </div>
         <div id="inventory" class="panel-content active"></div>
         <div id="shop-items" class="panel-content"></div>
+        <div id="task-list" class="panel-content"></div>
       </div>
       <canvas id="canvas" width="400" height="400"></canvas>
     </div>
@@ -560,6 +643,61 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     <div id="bag-icon">
       <img src="bag.png" alt="背包" />
     </div>
+
+    <script>
+    // 任务面板渲染与领奖逻辑
+    function renderTasks() {
+      if (!window.wasmBindings || !window.wasmBindings.get_tasks) return;
+      const taskList = document.getElementById('task-list');
+      if (!taskList) return;
+      const tasks = window.wasmBindings.get_tasks();
+      let html = '';
+      for (const task of tasks) {
+        let emoji = '🌱';
+        if (task.task_type && task.task_type.PlantCrop) {
+          const crop = task.task_type.PlantCrop.crop;
+          if (crop === 'wheat') emoji = '🌾';
+          if (crop === 'corn') emoji = '🌽';
+          if (crop === 'carrot') emoji = '🥕';
+        }
+        const percent = Math.min(100, Math.round((task.progress / task.target) * 100));
+        html += `<div class="task-card${task.completed ? ' completed' : ''}">
+          <div class="task-title">${emoji} ${task.description}</div>
+          <div class="task-desc">进度：${task.progress} / ${task.target}</div>
+          <div class="task-progress-bar"><div class="task-progress-inner" style="width:${percent}%;"></div></div>
+          <div class="task-reward">奖励：<span>💰${task.reward}</span></div>
+          <button class="task-btn" onclick="claimTaskReward(${task.id})" ${!task.completed || task.claimed ? 'disabled' : ''}>${task.claimed ? '已领取' : '领取奖励'}</button>
+        </div>`;
+      }
+      taskList.innerHTML = html;
+    }
+    window.claimTaskReward = function(taskId) {
+      if (window.wasmBindings && window.wasmBindings.claim_task_reward) {
+        const ok = window.wasmBindings.claim_task_reward(taskId);
+        if (ok) {
+          renderTasks();
+          // 可选：刷新金币显示
+          if (typeof updateInventoryPanel === 'function') updateInventoryPanel();
+        }
+      }
+    }
+    // tab切换时刷新任务
+    const tabs = document.getElementsByClassName('panel-tab');
+    for (let i = 0; i < tabs.length; i++) {
+      tabs[i].addEventListener('click', function() {
+        if (this.getAttribute('data-tab') === 'tasks') {
+          renderTasks();
+          document.getElementById('task-list').style.display = 'block';
+        } else {
+          document.getElementById('task-list').style.display = 'none';
+        }
+      });
+    }
+    // 页面加载后自动渲染一次（防止tab未切换时任务面板为空）
+    document.addEventListener('DOMContentLoaded', function() {
+      renderTasks();
+    });
+    </script>
   <script>"use strict";
 
 (function () {

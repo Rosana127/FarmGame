@@ -30,6 +30,23 @@ struct GameState {
     balance: u32,
 }
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub enum TaskType {
+    PlantCrop { crop: String, count: u32 },
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Task {
+    pub id: u32,
+    pub description: String,
+    pub task_type: TaskType,
+    pub progress: u32,
+    pub target: u32,
+    pub reward: u32,
+    pub completed: bool,
+    pub claimed: bool,
+}
+
 thread_local! {
     static FARM: RefCell<Farm> = RefCell::new(Farm::new(10, 10));
     static SHOP: RefCell<Shop> = RefCell::new(Shop::new());
@@ -40,6 +57,38 @@ thread_local! {
     static SHOP_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
     static SELECTED_CROP: RefCell<CropType> = RefCell::new(CropType::Wheat);
     static LOADED_COUNT: RefCell<u32> = RefCell::new(0);
+    static TASKS: RefCell<Vec<Task>> = RefCell::new(vec![
+        Task {
+            id: 1,
+            description: "种植小麦10个".to_string(),
+            task_type: TaskType::PlantCrop { crop: "wheat".to_string(), count: 10 },
+            progress: 0,
+            target: 10,
+            reward: 30,
+            completed: false,
+            claimed: false,
+        },
+        Task {
+            id: 2,
+            description: "种植玉米5个".to_string(),
+            task_type: TaskType::PlantCrop { crop: "corn".to_string(), count: 5 },
+            progress: 0,
+            target: 5,
+            reward: 20,
+            completed: false,
+            claimed: false,
+        },
+        Task {
+            id: 3,
+            description: "种植胡萝卜3个".to_string(),
+            task_type: TaskType::PlantCrop { crop: "carrot".to_string(), count: 3 },
+            progress: 0,
+            target: 3,
+            reward: 15,
+            completed: false,
+            claimed: false,
+        },
+    ]);
 }
 
 #[wasm_bindgen]
@@ -62,10 +111,24 @@ pub fn plant(row: usize, col: usize, crop: String) {
     };
     SELECTED_CROP.with(|selected| *selected.borrow_mut() = crop_type);
     let success = FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type));
-    if !success {
-        web_sys::console::log_1(&"种植失败：没有足够的种子或地块不为空".into());
-    } else {
+    if success {
+        // 统计任务进度
+        TASKS.with(|tasks| {
+            let mut tasks = tasks.borrow_mut();
+            for task in tasks.iter_mut() {
+                if let TaskType::PlantCrop { crop: ref task_crop, count: _ } = task.task_type {
+                    if !task.completed && crop == *task_crop {
+                        task.progress += 1;
+                        if task.progress >= task.target {
+                            task.completed = true;
+                        }
+                    }
+                }
+            }
+        });
         let _ = save_game();
+    } else {
+        web_sys::console::log_1(&"种植失败：没有足够的种子或地块不为空".into());
     }
 }
 
@@ -488,6 +551,32 @@ pub fn try_sell_crop(crop_type: String) -> bool {
     sold
 }
 
+#[wasm_bindgen]
+pub fn get_tasks() -> JsValue {
+    TASKS.with(|tasks| {
+        serde_wasm_bindgen::to_value(&*tasks.borrow()).unwrap()
+    })
+}
+
+#[wasm_bindgen]
+pub fn claim_task_reward(task_id: u32) -> bool {
+    let mut claimed = false;
+    TASKS.with(|tasks| {
+        let mut tasks = tasks.borrow_mut();
+        if let Some(task) = tasks.iter_mut().find(|t| t.id == task_id) {
+            if task.completed && !task.claimed {
+                SHOP.with(|shop| shop.borrow_mut().balance += task.reward);
+                task.claimed = true;
+                claimed = true;
+            }
+        }
+    });
+    if claimed {
+        let _ = save_game();
+    }
+    claimed
+}
+
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     let _ = load_game();
@@ -714,8 +803,8 @@ pub fn start() -> Result<(), JsValue> {
         let canvas_clone = canvas_rc.clone();
         let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
             event.prevent_default();
-            let canvas = canvas_clone.dyn_ref::<HtmlElement>().unwrap();
-            let _ = canvas.class_list().add_1("drag-over");
+            let canvas_html_el = canvas_clone.dyn_ref::<HtmlElement>().unwrap();
+            let _ = canvas_html_el.class_list().add_1("drag-over");
         }) as Box<dyn FnMut(_)>);
         canvas.add_event_listener_with_callback("dragover", closure.as_ref().unchecked_ref())?;
         closure.forget();
@@ -726,43 +815,26 @@ pub fn start() -> Result<(), JsValue> {
         let canvas_clone = canvas_rc.clone();
         let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
             event.prevent_default();
-            let canvas = canvas_clone.dyn_ref::<HtmlElement>().unwrap();
-            let _ = canvas.class_list().remove_1("drag-over");
-        }) as Box<dyn FnMut(_)>);
-        canvas.add_event_listener_with_callback("dragleave", closure.as_ref().unchecked_ref())?;
-        closure.forget();
-    }
-
-    {
-        let canvas_rc = Rc::new(canvas.clone());
-        let canvas_clone = canvas_rc.clone();
-        let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
-            event.prevent_default();
-            let canvas = canvas_clone.dyn_ref::<HtmlElement>().unwrap();
-            let _ = canvas.class_list().remove_1("drag-over");
+            let canvas_html_el = canvas_clone.dyn_ref::<HtmlElement>().unwrap();
+            let _ = canvas_html_el.class_list().remove_1("drag-over");
 
             let data_transfer = event.data_transfer().unwrap();
-            let seed_type = data_transfer.get_data("text/plain").unwrap();
-            let crop_type = match seed_type.as_str() {
-                "wheat" => CropType::Wheat,
-                "corn" => CropType::Corn,
-                "carrot" => CropType::Carrot,
-                _ => CropType::Wheat,
-            };
-
+            let seed_type_string = data_transfer.get_data("text/plain").unwrap();
+            
             let col = (event.offset_x() / 40 as i32) as usize;
             let row = (event.offset_y() / 40 as i32) as usize;
 
-            SELECTED_CROP.with(|selected| {
-                *selected.borrow_mut() = crop_type;
-            });
+            // 调用全局的 plant 函数，它会处理作物种植、任务更新、保存游戏和错误记录
+            plant(row, col, seed_type_string);
 
-            let success = FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type));
-            if success {
-                let _ = save_game();
-            } else {
-                web_sys::console::log_1(&"种植失败：没有足够的种子或地块不为空".into());
-            }
+            // 全局的 `plant` 函数已包含以下逻辑：
+            // 1. 从字符串派生 CropType 枚举。
+            // 2. 更新 SELECTED_CROP。
+            // 3. 调用 FARM 内部的 plant 方法。
+            // 4. 如果成功，更新任务进度。
+            // 5. 如果成功，保存游戏。
+            // 6. 如果种植失败，记录错误。
+            // 因此，此处无需显式的成功检查、save_game 调用或错误记录。
         }) as Box<dyn FnMut(_)>);
         canvas.add_event_listener_with_callback("drop", closure.as_ref().unchecked_ref())?;
         closure.forget();
