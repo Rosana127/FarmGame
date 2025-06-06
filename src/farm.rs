@@ -1,32 +1,31 @@
-use crate::tile::{Tile, TileState, CropType};
-use crate::inventory::Inventory;
+use super::tile::{CropType, Tile, TileState, FertilizerType};
+use super::inventory::Inventory;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct Farm {
     pub grid: Vec<Vec<Tile>>,
     pub inventory: Inventory,
-    pub rows: usize,  // 添加 rows 字段
-    pub cols: usize,  // 添加 cols 字段
 }
 
 impl Farm {
-    pub fn new(rows: usize, cols: usize) -> Self {
-        let row = vec![Tile { state: TileState::Empty }; cols];
+    pub fn new(width: usize, height: usize) -> Self {
+        let grid = vec![vec![Tile::new(); width]; height];
         Self {
-            grid: vec![row; rows],
+            grid,
             inventory: Inventory::new(),
-            rows,  // 初始化 rows
-            cols,  // 初始化 cols
         }
     }
 
     pub fn tick(&mut self) {
-        for row in &mut self.grid {
-            for tile in row {
-                if let TileState::Planted { crop, timer } = tile.state {
-                    if timer == 0 {
-                        tile.state = TileState::Mature { crop };
-                    } else {
-                        tile.state = TileState::Planted { crop, timer: timer - 1 };
+        for row in self.grid.iter_mut() {
+            for tile in row.iter_mut() {
+                if let TileState::Planted { crop, timer, fertilizer } = &mut tile.state {
+                    *timer += 1;
+                    // 使用 CropType 中定义的统一方法
+                    let adjusted_time = crop.growth_time_with_fertilizer(*fertilizer);
+                    if *timer >= adjusted_time {
+                        tile.state = TileState::Mature { crop: *crop };
                     }
                 }
             }
@@ -34,132 +33,80 @@ impl Farm {
     }
 
     pub fn plant(&mut self, row: usize, col: usize, crop: CropType) -> bool {
-        let crop_name = match crop {
-            CropType::Wheat => "wheat",
-            CropType::Corn => "corn",
-            CropType::Carrot => "carrot",
-        };
-
-        // 检查位置是否有效
-        if row >= self.rows || col >= self.cols {
-            return false;
-        }
-
-        // 检查地块是否为空
-        if self.grid[row][col].state != TileState::Empty {
-            return false;
-        }
-
-        // 检查是否有足够的种子
-        if !self.inventory.remove_seed(crop_name) {
-            return false;
-        }
-
-        // 种植作物
-        let timer = Self::get_growth_time(crop);
-        self.grid[row][col].state = TileState::Planted { crop, timer };
-        true
-    }
-
-    pub fn harvest(&mut self, row: usize, col: usize) {
-        if let TileState::Mature { crop } = self.grid[row][col].state {
-            self.grid[row][col].state = TileState::Empty;
-            let crop_name = match crop {
+        if row < self.grid.len() && col < self.grid[0].len() {
+            let tile = &mut self.grid[row][col];
+            let crop_str = match crop {
                 CropType::Wheat => "wheat",
                 CropType::Corn => "corn",
                 CropType::Carrot => "carrot",
             };
-            self.inventory.add_crop(crop_name);
-        }
-    }
-
-    pub fn get_inventory(&self) -> (std::collections::HashMap<String, u32>, std::collections::HashMap<String, u32>) {
-        self.inventory.get_items()
-    }
-
-    pub fn get_growth_time(crop: CropType) -> u32 {
-        match crop {
-            CropType::Carrot => 3,
-            CropType::Corn => 10,
-            CropType::Wheat => 5,
-        }
-    }
-
-    // 修复后的 get_crop_info 方法
-    pub fn get_crop_info(&self, row: usize, col: usize) -> String {
-        if row >= self.rows || col >= self.cols {
-            return serde_json::json!({
-                "state": "invalid",
-                "message": ""
-            }).to_string();
-        }
-
-        let tile = &self.grid[row][col];
-        match &tile.state {
-            TileState::Empty => {
-                serde_json::json!({
-                    "state": "empty",
-                    "message": "空地 - 可以种植作物",
-                    "canPlant": true
-                }).to_string()
-            },
-            TileState::Planted { crop, timer } => {
-                let growth_time = Self::get_growth_time(*crop);
-                let elapsed = growth_time - timer;
-                let remaining = *timer;
-                
-                let crop_name = match crop {
-                    CropType::Wheat => "小麦",
-                    CropType::Corn => "玉米", 
-                    CropType::Carrot => "胡萝卜",
+            if tile.can_plant() && self.inventory.remove_seed(crop_str) {
+                tile.state = TileState::Planted {
+                    crop,
+                    timer: 0,
+                    fertilizer: FertilizerType::None,
                 };
-                
-                let progress = (elapsed as f64 / growth_time as f64 * 100.0).min(100.0);
-                
-                serde_json::json!({
-                    "state": "planted",
-                    "crop": crop_name,
-                    "message": format!(
-                        "🌱 {} 幼苗\n⏱️ 成长进度: {:.1}%\n⏰ 剩余时间: {}秒\n💰 预期收益: {}金币", 
-                        crop_name, 
-                        progress,
-                        remaining,
-                        Self::get_crop_value(*crop)
-                    ),
-                    "progress": progress,
-                    "remaining_time": remaining,
-                    "expected_profit": Self::get_crop_value(*crop)
-                }).to_string()
-            },
-            TileState::Mature { crop } => {
-                let crop_name = match crop {
-                    CropType::Wheat => "小麦",
-                    CropType::Corn => "玉米",
-                    CropType::Carrot => "胡萝卜", 
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn harvest(&mut self, row: usize, col: usize) {
+        if row < self.grid.len() && col < self.grid[0].len() {
+            let tile = &mut self.grid[row][col];
+            if let TileState::Mature { crop } = tile.state {
+                let crop_str = match crop {
+                    CropType::Wheat => "wheat",
+                    CropType::Corn => "corn",
+                    CropType::Carrot => "carrot",
                 };
-                
-                serde_json::json!({
-                    "state": "mature",
-                    "crop": crop_name,
-                    "message": format!(
-                        "✨ {} 已成熟！\n🎯 点击收获\n💰 价值: {}金币\n📊 生长周期: {}秒", 
-                        crop_name,
-                        Self::get_crop_value(*crop),
-                        Self::get_growth_time(*crop)
-                    ),
-                    "sell_price": Self::get_crop_value(*crop),
-                    "growth_time": Self::get_growth_time(*crop)
-                }).to_string()
+                self.inventory.add_crop(crop_str);
+                tile.state = TileState::Empty;
             }
         }
     }
 
-    // 添加作物价值计算方法
-    fn get_crop_value(crop: CropType) -> u32 {
-        match crop {
-            CropType::Wheat => 15,   // 小麦卖15金币
-            CropType::Corn => 30,    // 玉米卖30金币  
-            CropType::Carrot => 20,  // 胡萝卜卖20金币
+    pub fn fertilize(&mut self, row: usize, col: usize, fertilizer_type: &str) -> bool {
+        if row < self.grid.len() && col < self.grid[0].len() {
+            let tile = &mut self.grid[row][col];
+            let fertilizer = match fertilizer_type {
+                "basic_fertilizer" => FertilizerType::Basic,
+                "premium_fertilizer" => FertilizerType::Premium,
+                "super_fertilizer" => FertilizerType::Super,
+                _ => FertilizerType::None,
+            };
+            if tile.can_fertilize() && self.inventory.remove_fertilizer(fertilizer_type) {
+                return tile.apply_fertilizer(fertilizer);
+            }
         }
+        false
+    }
+
+    pub fn get_crop_info(&self, row: usize, col: usize) -> String {
+        if row < self.grid.len() && col < self.grid[0].len() {
+            let tile = &self.grid[row][col];
+            let message = tile.get_crop_info();
+            let state = match tile.state {
+                TileState::Empty => "empty",
+                TileState::Planted { .. } => "planted",
+                TileState::Mature { .. } => "mature",
+            };
+            serde_json::to_string(&serde_json::json!({
+                "message": message,
+                "state": state
+            }))
+            .unwrap_or_default()
+        } else {
+            "{}".to_string()
+        }
+    }
+
+    pub fn get_full_inventory(&self) -> (std::collections::HashMap<String, u32>, std::collections::HashMap<String, u32>, std::collections::HashMap<String, u32>) {
+        self.inventory.get_all_items()
+    }
+
+    pub fn get_inventory(&self) -> (std::collections::HashMap<String, u32>, std::collections::HashMap<String, u32>) {
+        self.inventory.get_items()
     }
 }

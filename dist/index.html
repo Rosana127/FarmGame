@@ -5,8 +5,8 @@
     <title>🌾 Farm Sim Paradise</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-42bc965b22c4058f.js';
-const wasm = await init({ module_or_path: '/farm_sim-42bc965b22c4058f_bg.wasm' });
+import init, * as bindings from '/farm_sim-6c7e750e2c353430.js';
+const wasm = await init({ module_or_path: '/farm_sim-6c7e750e2c353430_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -16,6 +16,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
     <!-- 添加种子、作物和背包图片，Trunk会自动复制这些资源 -->
+    
     
     
     
@@ -619,7 +620,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         cursor: not-allowed;
       }
     </style>
-  <link rel="modulepreload" href="/farm_sim-42bc965b22c4058f.js" crossorigin="anonymous" integrity="sha384-zm+XaeZuAX0Q8NtOBMQG5W8525fU0LdQTcRIPMpTYyEl9sWs5+ZQbxJEb1rfGff7"><link rel="preload" href="/farm_sim-42bc965b22c4058f_bg.wasm" crossorigin="anonymous" integrity="sha384-HWcxLOcBaS6s1v6MIaUfMJTlQYat4FZkAS30IJwW6DjOGehjw6mxZkCHfUhyXXWS" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/farm_sim-6c7e750e2c353430.js" crossorigin="anonymous" integrity="sha384-Cl/+Rto530AoxgEVZ73VnraEXcNrOryDA9u90Nt4XPr5lJS68sI/OXS/DiYXRWxr"><link rel="preload" href="/farm_sim-6c7e750e2c353430_bg.wasm" crossorigin="anonymous" integrity="sha384-TEIOns2XVDKGv9VFNyGH6IpCxuKqoi2C+uPkOBR+ZrHhMsnX6gv0wlRZRIgH0wZw" as="fetch" type="application/wasm"></head>
   <body>
     <div class="game-header">
       <h1 class="game-title">🌾 Farm Sim Paradise</h1>
