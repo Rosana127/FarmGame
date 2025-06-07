@@ -1,5 +1,8 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+pub mod utils;
+use crate::utils::play_sound;
+use crate::utils::play_background_music;
 use web_sys::{
     window,
     HtmlCanvasElement,
@@ -13,6 +16,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use serde::{Serialize, Deserialize};
 use serde_json;
+use wasm_bindgen_futures::spawn_local;
 
 // Import modules and types
 
@@ -98,6 +102,13 @@ thread_local! {
     ]);
 }
 
+
+#[wasm_bindgen]
+pub fn try_play_music() {
+    crate::utils::play_background_music();
+}
+
+
 #[wasm_bindgen]
 pub fn tick() {
     FARM.with(|farm| farm.borrow_mut().tick());
@@ -119,6 +130,7 @@ pub fn plant(row: usize, col: usize, crop: String) {
     SELECTED_CROP.with(|selected| *selected.borrow_mut() = crop_type);
     let success = FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type));
     if success {
+        play_sound("plant_seed.mp3");
         TASKS.with(|tasks| {
             let mut tasks = tasks.borrow_mut();
             for task in tasks.iter_mut() {
@@ -140,6 +152,7 @@ pub fn plant(row: usize, col: usize, crop: String) {
 #[wasm_bindgen]
 pub fn harvest(row: usize, col: usize) {
     FARM.with(|farm| farm.borrow_mut().harvest(row, col));
+    play_sound("sell_crop.wav"); 
     let _ = save_game();
 }
 
@@ -194,7 +207,10 @@ pub fn buy_fertilizer(fertilizer_type: String) -> bool {
         }
     });
     if result {
+        play_sound("sell_crop.wav"); 
         let _ = save_game();
+    }else{
+        play_sound("buy_fail.wav"); 
     }
     result
 }
@@ -234,7 +250,10 @@ pub fn buy_seed(seed_type: String) -> bool {
         }
     });
     if result {
+        play_sound("sell_crop.wav"); 
         let _ = save_game();
+    }else{
+        play_sound("buy_fail.wav");
     }
     result
 }
@@ -273,6 +292,22 @@ pub fn save_game() -> Result<(), JsValue> {
     storage.set_item("farm_game_state", &json)?;
     Ok(())
 }
+
+#[wasm_bindgen]
+pub fn clear_tile(row: usize, col: usize) {
+    FARM.with(|farm| {
+        let mut farm = farm.borrow_mut();
+        if row < farm.grid.len() && col < farm.grid[0].len() {
+            if !farm.grid[row][col].can_plant() {
+                farm.grid[row][col].state = TileState::Empty;
+                crate::utils::show_message("🌿 作物已被清除！");
+                crate::utils::play_sound("audio/plant_seed.wav"); // 有这个音效才加
+            }
+        }
+    });
+    let _ = save_game();
+}
+
 
 #[wasm_bindgen]
 pub fn load_game() -> Result<(), JsValue> {
@@ -646,6 +681,7 @@ pub fn try_sell_crop(crop_type: String) -> bool {
     });
     if sold {
         let _ = save_game();
+        play_sound("sell_crop.wav"); 
     } else {
         web_sys::console::log_1(&format!("Failed to sell {}: Not in inventory.", crop_type).into());
     }
@@ -674,6 +710,7 @@ pub fn claim_task_reward(task_id: u32) -> bool {
     });
     if claimed {
         let _ = save_game();
+        play_sound("sell_crop.wav");
     }
     claimed
 }
@@ -681,6 +718,8 @@ pub fn claim_task_reward(task_id: u32) -> bool {
 #[wasm_bindgen(start)]
 pub fn start() -> Result<(), JsValue> {
     let _ = load_game();
+
+    play_background_music();
 
     let win = window().ok_or_else(|| JsValue::from_str("无法获取 window"))?;
     let document = win.document().ok_or_else(|| JsValue::from_str("无法获取 document"))?;
@@ -895,6 +934,7 @@ pub fn start() -> Result<(), JsValue> {
             .ok_or_else(|| JsValue::from_str("找不到 bag-icon 元素"))?;
         let bag_icon: Element = bag_icon.dyn_into()?;
         let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
+            play_sound("click.wav"); 
             if let Some(panel_el) = window().unwrap().document().unwrap().get_element_by_id("inventory-panel") {
                 let panel = panel_el.dyn_into::<HtmlElement>().unwrap();
                 let class_list = panel.class_list();
@@ -917,7 +957,7 @@ pub fn start() -> Result<(), JsValue> {
                 let tab_clone = tab.clone();
                 let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
                     let document = window().unwrap().document().unwrap();
-                    
+                    crate::utils::play_sound("click.wav");
                     let tabs = document.get_elements_by_class_name("panel-tab");
                     for j in 0..tabs.length() {
                         if let Some(t) = tabs.get_with_index(j) {
@@ -1028,15 +1068,25 @@ pub fn start() -> Result<(), JsValue> {
             event.prevent_default();
             let canvas_html_el = canvas_clone.dyn_ref::<HtmlElement>().unwrap();
             let _ = canvas_html_el.class_list().remove_1("drag-over");
-
+        
             let data_transfer = event.data_transfer().unwrap();
             let seed_type_string = data_transfer.get_data("text/plain").unwrap();
             
             let col = (event.offset_x() / 40 as i32) as usize;
             let row = (event.offset_y() / 40 as i32) as usize;
-
+        
+            // ✅ 新增：拖的是铲子 shovel，就清除作物
+            if seed_type_string == "shovel" {
+                wasm_bindgen_futures::spawn_local(async move {
+                    clear_tile(row, col);
+                });
+                return;
+            }
+        
+            // 否则是种子，就种植
             plant(row, col, seed_type_string);
         }) as Box<dyn FnMut(_)>);
+        
         canvas.add_event_listener_with_callback("drop", closure.as_ref().unchecked_ref())?;
         closure.forget();
     }

@@ -5,8 +5,8 @@
     <title>🌾 Farm Sim Paradise</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-6c7e750e2c353430.js';
-const wasm = await init({ module_or_path: '/farm_sim-6c7e750e2c353430_bg.wasm' });
+import init, * as bindings from '/farm_sim-e2751eeb905237a6.js';
+const wasm = await init({ module_or_path: '/farm_sim-e2751eeb905237a6_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -23,6 +23,9 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     
     
     
+    
+    
+
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
@@ -620,7 +623,17 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         cursor: not-allowed;
       }
     </style>
-  <link rel="modulepreload" href="/farm_sim-6c7e750e2c353430.js" crossorigin="anonymous" integrity="sha384-Cl/+Rto530AoxgEVZ73VnraEXcNrOryDA9u90Nt4XPr5lJS68sI/OXS/DiYXRWxr"><link rel="preload" href="/farm_sim-6c7e750e2c353430_bg.wasm" crossorigin="anonymous" integrity="sha384-TEIOns2XVDKGv9VFNyGH6IpCxuKqoi2C+uPkOBR+ZrHhMsnX6gv0wlRZRIgH0wZw" as="fetch" type="application/wasm"></head>
+    <style>
+      #shovel-icon {
+        position: fixed;
+        bottom: 100px;  
+        right: 30px; 
+        cursor: grab;
+        z-index: 10;
+      }
+    </style>
+    
+  <link rel="modulepreload" href="/farm_sim-e2751eeb905237a6.js" crossorigin="anonymous" integrity="sha384-WJr6dYvhPXcH6vLddFoPzBqK7Q3gTRslPQHLc0hTEzGng680uowPsP0h/ztdbGrV"><link rel="preload" href="/farm_sim-e2751eeb905237a6_bg.wasm" crossorigin="anonymous" integrity="sha384-yRu9DE3n+fk/+dYJX9AFfYC4DDGQbgj/mBqKP9PvUhV5c1kuI8JIG09U47HyRWZN" as="fetch" type="application/wasm"></head>
   <body>
     <div class="game-header">
       <h1 class="game-title">🌾 Farm Sim Paradise</h1>
@@ -641,6 +654,27 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       <canvas id="canvas" width="400" height="400"></canvas>
     </div>
     
+<!-- 提示信息框 -->
+<div id="message-box" style="
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  display: none;
+  z-index: 999;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  transition: opacity 0.3s ease;
+"></div>
+
+    <div id="shovel-icon" draggable="true" data-tool="shovel">
+      <img src="shovel.png" alt="shovel" style="width: 48px; height: 48px;" />
+    </div>
     <div id="bag-icon">
       <img src="bag.png" alt="背包" />
     </div>
@@ -698,7 +732,57 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     document.addEventListener('DOMContentLoaded', function() {
       renderTasks();
     });
+
+  // 监听用户首次点击页面，触发 Rust 播放音乐
+  document.addEventListener("click", () => {
+    if (window.wasmBindings?.try_play_music) {
+      window.wasmBindings.try_play_music();
+      console.log("🔊 音乐播放触发");
+    }
+  }, { once: true });
+
     </script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const shovel = document.getElementById("shovel-icon");
+        const canvas = document.getElementById("canvas");
+      
+        // 当用户开始拖动铲子时，设置拖动数据为 "shovel"
+        shovel.addEventListener("dragstart", function (e) {
+          e.dataTransfer.setData("text/plain", "shovel");
+        });
+      
+        // 允许 canvas 接受拖放
+        canvas.addEventListener("dragover", function (e) {
+          e.preventDefault(); // 必须阻止默认行为才能触发 drop
+        });
+      
+        // 拖放铲子到 canvas 上触发
+        canvas.addEventListener("drop", function (e) {
+          e.preventDefault();
+      
+          const tool = e.dataTransfer.getData("text/plain");
+          if (tool === "shovel") {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+      
+            // 调用 Rust 中绑定的清除函数
+            if (window.wasmBindings && window.wasmBindings.clear_crop_at) {
+              window.wasmBindings.clear_crop_at(Math.floor(x), Math.floor(y));
+            }
+      
+            // 可选：显示提示框
+            const msgBox = document.getElementById("message-box");
+            msgBox.innerText = "🧹 作物已清除";
+            msgBox.style.display = "block";
+            setTimeout(() => {
+              msgBox.style.display = "none";
+            }, 1200);
+          }
+        });
+      });
+      </script>      
   <script>"use strict";
 
 (function () {

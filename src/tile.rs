@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+use crate::utils::show_message;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CropType {
@@ -214,8 +215,15 @@ impl Tile {
                 timer,
                 fertilizer,
             };
+            show_message(&format!(
+                "施肥成功！使用了{}，生长速度加快。",
+                fertilizer.display_name()
+            ));
             return true;
+        } else {
+            show_message("无法施肥：该地块未种植或已施肥！");
         }
         false
     }
+    
 }

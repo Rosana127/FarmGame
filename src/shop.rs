@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
-
+use crate::utils::show_message;
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Shop {
     pub seeds: HashMap<String, u32>,
@@ -34,10 +34,15 @@ impl Shop {
             if self.balance >= price {
                 self.balance -= price;
                 return true;
+            } else {
+                show_message("金币不足，无法购买肥料！");
             }
+        } else {
+            show_message("未找到该肥料！");
         }
         false
     }
+    
 
     pub fn get_fertilizer_price(&self, fertilizer_type: &str) -> Option<u32> {
         self.fertilizers.get(fertilizer_type).copied()
@@ -48,11 +53,15 @@ impl Shop {
             if self.balance >= price {
                 self.balance -= price;
                 return true;
+            } else {
+                show_message("金币不足，无法购买种子！");
             }
+        } else {
+            show_message("未找到该种子！");
         }
         false
     }
-
+    
     pub fn sell_crop(&mut self, crop_type: &str) {
         let price = match crop_type {
             "wheat" => 15,

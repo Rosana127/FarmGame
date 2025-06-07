@@ -12,6 +12,9 @@
     <link data-trunk rel="copy-file" href="assets/bag.png" />
     <link data-trunk rel="copy-file" href="assets/shop.jpg" />
     <link data-trunk rel="copy-file" href="assets/fertilizer.png" />
+    <link data-trunk rel="copy-file" href="assets/shovel.png" />
+    <link data-trunk rel="copy-dir" href="assets/audio" />
+
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
@@ -609,6 +612,16 @@
         cursor: not-allowed;
       }
     </style>
+    <style>
+      #shovel-icon {
+        position: fixed;
+        bottom: 100px;  
+        right: 30px; 
+        cursor: grab;
+        z-index: 10;
+      }
+    </style>
+    
   </head>
   <body>
     <div class="game-header">
@@ -630,6 +643,27 @@
       <canvas id="canvas" width="400" height="400"></canvas>
     </div>
     
+<!-- 提示信息框 -->
+<div id="message-box" style="
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  display: none;
+  z-index: 999;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  transition: opacity 0.3s ease;
+"></div>
+
+    <div id="shovel-icon" draggable="true" data-tool="shovel">
+      <img src="shovel.png" alt="shovel" style="width: 48px; height: 48px;" />
+    </div>
     <div id="bag-icon">
       <img src="bag.png" alt="背包" />
     </div>
@@ -687,6 +721,56 @@
     document.addEventListener('DOMContentLoaded', function() {
       renderTasks();
     });
+
+  // 监听用户首次点击页面，触发 Rust 播放音乐
+  document.addEventListener("click", () => {
+    if (window.wasmBindings?.try_play_music) {
+      window.wasmBindings.try_play_music();
+      console.log("🔊 音乐播放触发");
+    }
+  }, { once: true });
+
     </script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const shovel = document.getElementById("shovel-icon");
+        const canvas = document.getElementById("canvas");
+      
+        // 当用户开始拖动铲子时，设置拖动数据为 "shovel"
+        shovel.addEventListener("dragstart", function (e) {
+          e.dataTransfer.setData("text/plain", "shovel");
+        });
+      
+        // 允许 canvas 接受拖放
+        canvas.addEventListener("dragover", function (e) {
+          e.preventDefault(); // 必须阻止默认行为才能触发 drop
+        });
+      
+        // 拖放铲子到 canvas 上触发
+        canvas.addEventListener("drop", function (e) {
+          e.preventDefault();
+      
+          const tool = e.dataTransfer.getData("text/plain");
+          if (tool === "shovel") {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+      
+            // 调用 Rust 中绑定的清除函数
+            if (window.wasmBindings && window.wasmBindings.clear_crop_at) {
+              window.wasmBindings.clear_crop_at(Math.floor(x), Math.floor(y));
+            }
+      
+            // 可选：显示提示框
+            const msgBox = document.getElementById("message-box");
+            msgBox.innerText = "🧹 作物已清除";
+            msgBox.style.display = "block";
+            setTimeout(() => {
+              msgBox.style.display = "none";
+            }, 1200);
+          }
+        });
+      });
+      </script>      
   </body>
 </html>
