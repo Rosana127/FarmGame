@@ -13,6 +13,7 @@
     <link data-trunk rel="copy-file" href="assets/shop.jpg" />
     <link data-trunk rel="copy-file" href="assets/fertilizer.png" />
     <link data-trunk rel="copy-file" href="assets/shovel.png" />
+    <link data-trunk rel="copy-file" href="assets/spray.png" />
     <link data-trunk rel="copy-dir" href="assets/audio" />
 
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -621,6 +622,17 @@
         z-index: 10;
       }
     </style>
+    <style> 
+    #spray-icon {
+      position: fixed;
+      bottom: 170px; 
+      right: 30px;
+      cursor: grab;
+      z-index: 11;
+    }
+    </style>
+    
+    
     
   </head>
   <body>
@@ -660,7 +672,10 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   transition: opacity 0.3s ease;
 "></div>
-
+    <div id="spray-icon" draggable="true" data-tool="spray">
+      <img src="spray.png" alt="spray" style="width: 48px; height: 48px;" />
+    </div>
+    
     <div id="shovel-icon" draggable="true" data-tool="shovel">
       <img src="shovel.png" alt="shovel" style="width: 48px; height: 48px;" />
     </div>
@@ -761,7 +776,7 @@
               window.wasmBindings.clear_crop_at(Math.floor(x), Math.floor(y));
             }
       
-            // 可选：显示提示框
+            // 显示提示框
             const msgBox = document.getElementById("message-box");
             msgBox.innerText = "🧹 作物已清除";
             msgBox.style.display = "block";
@@ -771,6 +786,44 @@
           }
         });
       });
-      </script>      
+      </script>     
+            <script>
+              document.addEventListener("DOMContentLoaded", function () {
+          const spray = document.getElementById("spray-icon");
+          const canvas = document.getElementById("canvas");
+        
+          spray.addEventListener("dragstart", function (e) {
+            e.dataTransfer.setData("text/plain", "spray");
+          });
+        
+          canvas.addEventListener("dragover", function (e) {
+            e.preventDefault(); // 允许拖放
+          });
+        
+          canvas.addEventListener("drop", function (e) {
+            e.preventDefault();
+        
+            const tool = e.dataTransfer.getData("text/plain");
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const row = Math.floor(y / 40);
+            const col = Math.floor(x / 40);
+        
+            if (tool === "spray") {
+              if (window.wasmBindings?.spray_tile) {
+                window.wasmBindings.spray_tile(row, col);
+              }
+        
+              const msgBox = document.getElementById("message-box");
+              msgBox.innerText = "🐛 害虫清除！";
+              msgBox.style.display = "block";
+              setTimeout(() => {
+                msgBox.style.display = "none";
+              }, 1200);
+            }
+          });
+        });
+        </script> 
   </body>
 </html>

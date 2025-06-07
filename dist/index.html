@@ -5,8 +5,8 @@
     <title>🌾 Farm Sim Paradise</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-e2751eeb905237a6.js';
-const wasm = await init({ module_or_path: '/farm_sim-e2751eeb905237a6_bg.wasm' });
+import init, * as bindings from '/farm_sim-cccbd00da504a088.js';
+const wasm = await init({ module_or_path: '/farm_sim-cccbd00da504a088_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -16,6 +16,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
     <!-- 添加种子、作物和背包图片，Trunk会自动复制这些资源 -->
+    
     
     
     
@@ -632,8 +633,19 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         z-index: 10;
       }
     </style>
+    <style> 
+    #spray-icon {
+      position: fixed;
+      bottom: 170px; 
+      right: 30px;
+      cursor: grab;
+      z-index: 11;
+    }
+    </style>
     
-  <link rel="modulepreload" href="/farm_sim-e2751eeb905237a6.js" crossorigin="anonymous" integrity="sha384-WJr6dYvhPXcH6vLddFoPzBqK7Q3gTRslPQHLc0hTEzGng680uowPsP0h/ztdbGrV"><link rel="preload" href="/farm_sim-e2751eeb905237a6_bg.wasm" crossorigin="anonymous" integrity="sha384-yRu9DE3n+fk/+dYJX9AFfYC4DDGQbgj/mBqKP9PvUhV5c1kuI8JIG09U47HyRWZN" as="fetch" type="application/wasm"></head>
+    
+    
+  <link rel="modulepreload" href="/farm_sim-cccbd00da504a088.js" crossorigin="anonymous" integrity="sha384-cE40hmrDfBX9uxHZb3s9N3dQNkJN94T4fHwwAQDzpV9lyQWAZfYgUyzs5YjUTYkb"><link rel="preload" href="/farm_sim-cccbd00da504a088_bg.wasm" crossorigin="anonymous" integrity="sha384-Lxzu/RFKby0XLLNiY932aSSP79z7XAjZlPw9pc4+khoLkVT4W+3ms1eS7yUXZS/k" as="fetch" type="application/wasm"></head>
   <body>
     <div class="game-header">
       <h1 class="game-title">🌾 Farm Sim Paradise</h1>
@@ -671,7 +683,10 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   transition: opacity 0.3s ease;
 "></div>
-
+    <div id="spray-icon" draggable="true" data-tool="spray">
+      <img src="spray.png" alt="spray" style="width: 48px; height: 48px;" />
+    </div>
+    
     <div id="shovel-icon" draggable="true" data-tool="shovel">
       <img src="shovel.png" alt="shovel" style="width: 48px; height: 48px;" />
     </div>
@@ -772,7 +787,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
               window.wasmBindings.clear_crop_at(Math.floor(x), Math.floor(y));
             }
       
-            // 可选：显示提示框
+            // 显示提示框
             const msgBox = document.getElementById("message-box");
             msgBox.innerText = "🧹 作物已清除";
             msgBox.style.display = "block";
@@ -782,7 +797,45 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
           }
         });
       });
-      </script>      
+      </script>     
+            <script>
+              document.addEventListener("DOMContentLoaded", function () {
+          const spray = document.getElementById("spray-icon");
+          const canvas = document.getElementById("canvas");
+        
+          spray.addEventListener("dragstart", function (e) {
+            e.dataTransfer.setData("text/plain", "spray");
+          });
+        
+          canvas.addEventListener("dragover", function (e) {
+            e.preventDefault(); // 允许拖放
+          });
+        
+          canvas.addEventListener("drop", function (e) {
+            e.preventDefault();
+        
+            const tool = e.dataTransfer.getData("text/plain");
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const row = Math.floor(y / 40);
+            const col = Math.floor(x / 40);
+        
+            if (tool === "spray") {
+              if (window.wasmBindings?.spray_tile) {
+                window.wasmBindings.spray_tile(row, col);
+              }
+        
+              const msgBox = document.getElementById("message-box");
+              msgBox.innerText = "🐛 害虫清除！";
+              msgBox.style.display = "block";
+              setTimeout(() => {
+                msgBox.style.display = "none";
+              }, 1200);
+            }
+          });
+        });
+        </script> 
   <script>"use strict";
 
 (function () {

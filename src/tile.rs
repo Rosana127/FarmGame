@@ -25,6 +25,7 @@ pub enum TileState {
         fertilizer: FertilizerType,
     },
     Mature { crop: CropType },
+    Infested { crop: CropType }, // 🐛 新增虫害状态
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -67,7 +68,6 @@ impl CropType {
         }
     }
 
-    // 新增：作物描述信息
     pub fn description(&self) -> &'static str {
         match self {
             CropType::Wheat => "基础农作物，生长快速，用途广泛",
@@ -76,7 +76,6 @@ impl CropType {
         }
     }
 
-    // 新增：作物特性信息
     pub fn characteristics(&self) -> &'static str {
         match self {
             CropType::Wheat => "• 适应性强\n• 收获量稳定\n• 市场需求量大",
@@ -85,7 +84,6 @@ impl CropType {
         }
     }
 
-    // 新增：种植建议
     pub fn planting_tips(&self) -> &'static str {
         match self {
             CropType::Wheat => "建议: 适合初学者种植，可大面积种植获得稳定收入",
@@ -123,7 +121,6 @@ impl FertilizerType {
         }
     }
 
-    // 新增：肥料效果描述
     pub fn effect_description(&self) -> &'static str {
         match self {
             FertilizerType::None => "",
@@ -162,18 +159,16 @@ impl Tile {
                 let total_time = crop.growth_time_with_fertilizer(fertilizer);
                 let remaining = total_time.saturating_sub(timer);
                 let progress_percent = ((timer as f32 / total_time as f32) * 100.0) as u32;
-                
-                // 生成进度条
+
                 let progress_bar_length = 20;
                 let filled_length = ((timer as f32 / total_time as f32) * progress_bar_length as f32) as usize;
                 let progress_bar = "█".repeat(filled_length) + "░".repeat(progress_bar_length - filled_length).as_str();
-                
+
                 let mut info = format!(
                     "🌱 {} (生长中)\n━━━━━━━━━━━━━━\n📊 生长进度: {}% [{}]\n⏰ 剩余时间: {} 秒\n⏱️ 总生长时间: {} 秒",
                     crop.display_name(), progress_percent, progress_bar, remaining, total_time
                 );
 
-                // 添加肥料信息
                 if fertilizer != FertilizerType::None {
                     info.push_str(&format!(
                         "\n🧪 肥料效果: {} {}\n💬 {}", 
@@ -185,7 +180,6 @@ impl Tile {
                     info.push_str("\n🧪 肥料状态: 未施肥 (右键点击可施肥加速生长)");
                 }
 
-                // 添加作物详细信息
                 info.push_str(&format!(
                     "\n\n📋 作物信息:\n📝 {}\n💰 预期收益: {} 金币\n\n🌟 作物特性:\n{}\n\n💡 {}",
                     crop.description(),
@@ -205,25 +199,38 @@ impl Tile {
                     crop.characteristics()
                 )
             },
+            TileState::Infested { crop } => {
+                format!(
+                    "🐛 {} (已被虫害感染)\n━━━━━━━━━━━━━━\n⚠️ 状态: 无法生长\n💀 需要喷雾驱虫恢复\n\n📋 作物信息:\n📝 {}\n💡 建议尽快清理虫害后继续生长",
+                    crop.display_name(),
+                    crop.description()
+                )
+            }
         }
     }
 
     pub fn apply_fertilizer(&mut self, fertilizer: FertilizerType) -> bool {
-        if let TileState::Planted { crop, timer, fertilizer: FertilizerType::None } = self.state {
-            self.state = TileState::Planted {
-                crop,
-                timer,
-                fertilizer,
-            };
-            show_message(&format!(
-                "施肥成功！使用了{}，生长速度加快。",
-                fertilizer.display_name()
-            ));
-            return true;
-        } else {
-            show_message("无法施肥：该地块未种植或已施肥！");
+        match self.state {
+            TileState::Planted { crop, timer, fertilizer: FertilizerType::None } => {
+                self.state = TileState::Planted {
+                    crop,
+                    timer,
+                    fertilizer,
+                };
+                show_message(&format!(
+                    "施肥成功！使用了{}，生长速度加快。",
+                    fertilizer.display_name()
+                ));
+                true
+            },
+            TileState::Infested { .. } => {
+                show_message("无法施肥：作物已被虫害感染！");
+                false
+            },
+            _ => {
+                show_message("无法施肥：该地块未种植或已施肥！");
+                false
+            }
         }
-        false
     }
-    
 }

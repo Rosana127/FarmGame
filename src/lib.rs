@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 pub mod utils;
+use crate::tile::FertilizerType;
 use crate::utils::play_sound;
 use crate::utils::play_background_music;
 use web_sys::{
@@ -120,6 +121,27 @@ pub fn get_crop_info(row: usize, col: usize) -> String {
 }
 
 #[wasm_bindgen]
+pub fn spray_tile(row: usize, col: usize) {
+    FARM.with(|farm| {
+        let mut farm = farm.borrow_mut();
+        if row < farm.grid.len() && col < farm.grid[0].len() {
+            if let TileState::Infested { crop, .. } = farm.grid[row][col].state {
+                farm.grid[row][col].state = TileState::Planted {
+                    crop,
+                    timer: 0,
+                    fertilizer: FertilizerType::None,
+                };
+                crate::utils::play_sound("click.wav"); // 用喷雾音效替代
+                crate::utils::show_message("🐛 害虫已清除！");
+            }
+        }
+    });
+
+    let _ = save_game();
+}
+
+
+#[wasm_bindgen]
 pub fn plant(row: usize, col: usize, crop: String) {
     let crop_type = match crop.as_str() {
         "wheat" => CropType::Wheat,
@@ -172,9 +194,15 @@ pub fn get_state(row: usize, col: usize) -> String {
                 CropType::Corn => "mature_corn".into(),
                 CropType::Carrot => "mature_carrot".into(),
             },
+            TileState::Infested { crop } => match crop {
+                CropType::Wheat => "infested_wheat".into(),
+                CropType::Corn => "infested_corn".into(),
+                CropType::Carrot => "infested_carrot".into(),
+            },
         }
     })
 }
+
 
 #[wasm_bindgen]
 pub fn fertilize(row: usize, col: usize) -> bool {
@@ -381,29 +409,33 @@ fn start_render_loop() -> Result<(), JsValue> {
                 let _ = save_game();
             }
         }
-
         for row in 0..10 {
             for col in 0..10 {
                 let state = get_state(row, col);
-
-                closure_ctx.set_fill_style(&JsValue::from_str("#ddd"));
+        
+                // ✅ 判断虫害状态，设置背景色
+                let is_infested = state.starts_with("infested_");
+                let bg_color = if is_infested { "#444" } else { "#ddd" };
+        
+                closure_ctx.set_fill_style(&JsValue::from_str(bg_color));
                 closure_ctx.fill_rect(
                     (col * size) as f64,
                     (row * size) as f64,
                     (size - 2) as f64,
                     (size - 2) as f64,
                 );
-
+        
+                // ✅ 为虫害或正常状态统一提取图像名
                 let image = match state.as_str() {
-                    "planted_wheat" | "planted_corn" | "planted_carrot" => {
-                        SEED_IMAGE.with(|img| img.borrow().clone())
-                    }
+                    "planted_wheat" | "infested_wheat" => SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_corn"  | "infested_corn"  => SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_carrot"| "infested_carrot"=> SEED_IMAGE.with(|img| img.borrow().clone()),
                     "mature_wheat" => WHEAT_IMAGE.with(|img| img.borrow().clone()),
                     "mature_corn" => CORN_IMAGE.with(|img| img.borrow().clone()),
                     "mature_carrot" => CARROT_IMAGE.with(|img| img.borrow().clone()),
                     _ => None,
                 };
-
+        
                 if let Some(img) = image {
                     let _ = closure_ctx.draw_image_with_html_image_element_and_dw_and_dh(
                         &img,

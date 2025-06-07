@@ -1,7 +1,7 @@
 use super::tile::{CropType, Tile, TileState, FertilizerType};
 use super::inventory::Inventory;
 use serde::{Serialize, Deserialize};
-
+use rand::Rng;
 #[derive(Serialize, Deserialize)]
 pub struct Farm {
     pub grid: Vec<Vec<Tile>>,
@@ -30,6 +30,7 @@ impl Farm {
                 }
             }
         }
+        self.random_infest(); 
     }
 
     pub fn plant(&mut self, row: usize, col: usize, crop: CropType) -> bool {
@@ -67,6 +68,22 @@ impl Farm {
         }
     }
 
+    pub fn random_infest(&mut self) {
+        let mut rng = rand::thread_rng();
+    
+        for row in &mut self.grid {
+            for tile in row {
+                if let TileState::Planted { crop, .. } = tile.state {
+                    let chance: f32 = rng.gen(); // 随机值 0.0 ~ 1.0
+                    if chance < 0.02 { // 每帧 2% 概率变成虫害
+                        tile.state = TileState::Infested { crop };
+                        crate::utils::show_message("⚠️ 有作物遭遇虫害了！");
+                    }
+                }
+            }
+        }
+    }
+    
     pub fn fertilize(&mut self, row: usize, col: usize, fertilizer_type: &str) -> bool {
         if row < self.grid.len() && col < self.grid[0].len() {
             let tile = &mut self.grid[row][col];
@@ -91,7 +108,12 @@ impl Farm {
                 TileState::Empty => "empty",
                 TileState::Planted { .. } => "planted",
                 TileState::Mature { .. } => "mature",
-            };
+                TileState::Infested { crop } => match crop {
+                    CropType::Wheat => "infested_wheat",
+                    CropType::Corn => "infested_corn",
+                    CropType::Carrot => "infested_carrot",
+                },
+            };            
             serde_json::to_string(&serde_json::json!({
                 "message": message,
                 "state": state
