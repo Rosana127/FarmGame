@@ -16,8 +16,6 @@
     <link data-trunk rel="copy-file" href="assets/spray.png" />
     <link data-trunk rel="copy-dir" href="assets/audio" />
 
-    <link data-trunk rel="copy-file" href="assets/net.png" />
-
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
@@ -674,16 +672,6 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   transition: opacity 0.3s ease;
 "></div>
-    <div id="net-icon" draggable="true" data-tool="net" style="
-    position: fixed;
-    bottom: 240px;
-    right: 30px;
-    cursor: grab;
-    z-index: 12;
-  ">
-    <img src="net.png" alt="net" style="width: 48px; height: 48px;" />
-  </div>
-  
     <div id="spray-icon" draggable="true" data-tool="spray">
       <img src="spray.png" alt="spray" style="width: 48px; height: 48px;" />
     </div>
@@ -798,40 +786,7 @@
           }
         });
       });
-      </script>
-      <script>
-        document.addEventListener("DOMContentLoaded", function () {
-          const net = document.getElementById("net-icon");
-          const canvas = document.getElementById("canvas");
-        
-          net.addEventListener("dragstart", function (e) {
-            e.dataTransfer.setData("text/plain", "net");
-          });
-        
-          canvas.addEventListener("dragover", function (e) {
-            e.preventDefault(); // 允许拖放
-          });
-        
-          canvas.addEventListener("drop", function (e) {
-            e.preventDefault();
-        
-            const tool = e.dataTransfer.getData("text/plain");
-            if (tool === "net") {
-              if (window.wasmBindings?.apply_bug_protection) {
-                window.wasmBindings.apply_bug_protection();
-              }
-        
-              const msgBox = document.getElementById("message-box");
-              msgBox.innerText = "🕸️ 捕虫网已部署，害虫不会再来了！";
-              msgBox.style.display = "block";
-              setTimeout(() => {
-                msgBox.style.display = "none";
-              }, 1500);
-            }
-          });
-        });
-        </script>
-             
+      </script>     
             <script>
               document.addEventListener("DOMContentLoaded", function () {
           const spray = document.getElementById("spray-icon");

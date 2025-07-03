@@ -16,24 +16,7 @@ impl Farm {
             inventory: Inventory::new(),
         }
     }
-    pub fn tick_without_infestation(&mut self) {
-        for row in self.grid.iter_mut() {
-            for tile in row.iter_mut() {
-                match &mut tile.state {
-                    TileState::Planted { timer, .. } => {
-                        *timer += 1;
-                        if *timer >= 5 {
-                            if let TileState::Planted { crop, .. } = std::mem::replace(&mut tile.state, TileState::Empty) {
-                                tile.state = TileState::Mature { crop };
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-    
+
     pub fn tick(&mut self) {
         for row in self.grid.iter_mut() {
             for tile in row.iter_mut() {

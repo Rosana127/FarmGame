@@ -69,8 +69,6 @@ thread_local! {
     static LOADED_COUNT: RefCell<u32> = RefCell::new(0);
     static TOOLTIP_UPDATE_TIMER: RefCell<Option<i32>> = RefCell::new(None);
     static CURRENT_HOVERED_POSITION: RefCell<Option<(usize, usize, i32, i32)>> = RefCell::new(None);
-    static BUG_PROTECTION_ENABLED: RefCell<bool> = RefCell::new(false);
-
     static TASKS: RefCell<Vec<Task>> = RefCell::new(vec![
         Task {
             id: 1,
@@ -114,41 +112,8 @@ pub fn try_play_music() {
 
 #[wasm_bindgen]
 pub fn tick() {
-    BUG_PROTECTION_ENABLED.with(|flag| {
-        FARM.with(|farm| {
-            if *flag.borrow() {
-                farm.borrow_mut().tick_without_infestation();
-            } else {
-                farm.borrow_mut().tick();
-            }
-        });
-    });
+    FARM.with(|farm| farm.borrow_mut().tick());
 }
-#[wasm_bindgen]
-pub fn apply_bug_protection() {
-    BUG_PROTECTION_ENABLED.with(|flag| *flag.borrow_mut() = true);
-
-    // 清除现有害虫
-    FARM.with(|farm| {
-        let mut farm = farm.borrow_mut();
-        for row in farm.grid.iter_mut() {
-            for tile in row.iter_mut() {
-                if let TileState::Infested { crop } = tile.state {
-                    tile.state = TileState::Planted {
-                        crop,
-                        timer: 0,
-                        fertilizer: FertilizerType::None,
-                    };
-                }
-            }
-        }
-    });
-
-    play_sound("click.wav");
-    crate::utils::show_message("🕸️ 捕虫网部署完成！");
-    let _ = save_game();
-}
-
 
 #[wasm_bindgen]
 pub fn get_crop_info(row: usize, col: usize) -> String {
