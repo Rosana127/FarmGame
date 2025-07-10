@@ -120,24 +120,10 @@ impl Farm {
     pub fn get_crop_info(&self, row: usize, col: usize) -> String {
         if row < self.grid.len() && col < self.grid[0].len() {
             let tile = &self.grid[row][col];
-            let message = tile.get_crop_info();
-            let state = match tile.state {
-                TileState::Empty => "empty",
-                TileState::Planted { .. } => "planted",
-                TileState::Mature { .. } => "mature",
-                TileState::Infested { crop } => match crop {
-                    CropType::Wheat => "infested_wheat",
-                    CropType::Corn => "infested_corn",
-                    CropType::Carrot => "infested_carrot",
-                },
-            };            
-            serde_json::to_string(&serde_json::json!({
-                "message": message,
-                "state": state
-            }))
-            .unwrap_or_default()
+            // 直接返回 tile 的信息文本
+            tile.get_crop_info()
         } else {
-            "{}".to_string()
+            "无效位置".to_string()
         }
     }
 
