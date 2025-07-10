@@ -5,8 +5,8 @@
     <title>🌾 Farm Sim Paradise</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-4f46c12812251bb1.js';
-const wasm = await init({ module_or_path: '/farm_sim-4f46c12812251bb1_bg.wasm' });
+import init, * as bindings from '/farm_sim-422e70a9eadff4b1.js';
+const wasm = await init({ module_or_path: '/farm_sim-422e70a9eadff4b1_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -647,7 +647,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     
     
     
-  <link rel="modulepreload" href="/farm_sim-4f46c12812251bb1.js" crossorigin="anonymous" integrity="sha384-vfA4Z3YwL4/1No1U2PXafED8WaS0yvqEptfgPPSP0VviExq3bTvuL8Ep5DFCBwLB"><link rel="preload" href="/farm_sim-4f46c12812251bb1_bg.wasm" crossorigin="anonymous" integrity="sha384-SK2X13UpjUykCiGQ02duOvN15uw/ASKYZUgh8T7mvTKRXhq+KQeXkEj4Q1e4H1Ct" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/farm_sim-422e70a9eadff4b1.js" crossorigin="anonymous" integrity="sha384-vfA4Z3YwL4/1No1U2PXafED8WaS0yvqEptfgPPSP0VviExq3bTvuL8Ep5DFCBwLB"><link rel="preload" href="/farm_sim-422e70a9eadff4b1_bg.wasm" crossorigin="anonymous" integrity="sha384-SK2X13UpjUykCiGQ02duOvN15uw/ASKYZUgh8T7mvTKRXhq+KQeXkEj4Q1e4H1Ct" as="fetch" type="application/wasm"></head>
   <body>
     <div class="game-header">
       <h1 class="game-title">🌾 Farm Sim Paradise</h1>
@@ -798,14 +798,6 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
             if (window.wasmBindings && window.wasmBindings.clear_crop_at) {
               window.wasmBindings.clear_crop_at(Math.floor(x), Math.floor(y));
             }
-      
-            // 显示提示框
-            const msgBox = document.getElementById("message-box");
-            msgBox.innerText = "🧹 作物已清除";
-            msgBox.style.display = "block";
-            setTimeout(() => {
-              msgBox.style.display = "none";
-            }, 1200);
           }
         });
       });

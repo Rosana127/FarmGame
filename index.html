@@ -787,14 +787,6 @@
             if (window.wasmBindings && window.wasmBindings.clear_crop_at) {
               window.wasmBindings.clear_crop_at(Math.floor(x), Math.floor(y));
             }
-      
-            // 显示提示框
-            const msgBox = document.getElementById("message-box");
-            msgBox.innerText = "🧹 作物已清除";
-            msgBox.style.display = "block";
-            setTimeout(() => {
-              msgBox.style.display = "none";
-            }, 1200);
           }
         });
       });
