@@ -161,17 +161,21 @@ pub fn spray_tile(row: usize, col: usize) {
         let mut farm = farm.borrow_mut();
         if row < farm.grid.len() && col < farm.grid[0].len() {
             if let TileState::Infested { crop, .. } = farm.grid[row][col].state {
+                // 只有遭到虫害时才清除害虫
                 farm.grid[row][col].state = TileState::Planted {
                     crop,
                     timer: 0,
                     fertilizer: FertilizerType::None,
                 };
-                crate::utils::play_sound("click.wav"); // 用喷雾音效替代
+                crate::utils::play_sound("click.wav");
                 crate::utils::show_message("🐛 害虫已清除！");
+            } else {
+                // 没有害虫的情况
+                crate::utils::show_message("🚫 这里没有害虫需要清除");
             }
         }
     });
-
+    
     let _ = save_game();
 }
 
