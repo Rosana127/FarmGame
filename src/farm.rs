@@ -71,8 +71,14 @@ impl Farm {
             if let TileState::Mature { crop } = tile.state {
                 let crop_str = match crop {
                     CropType::Wheat => "wheat",
+                    CropType::PremiumWheat => "premium_wheat",
+                    CropType::GoldenWheat => "golden_wheat",
                     CropType::Corn => "corn",
+                    CropType::PremiumCorn => "premium_corn",
+                    CropType::GoldenCorn => "golden_corn",
                     CropType::Carrot => "carrot",
+                    CropType::PremiumCarrot => "premium_carrot",
+                    CropType::GoldenCarrot => "golden_carrot",
                 };
                 self.inventory.add_crop(crop_str);
                 tile.state = TileState::Empty;

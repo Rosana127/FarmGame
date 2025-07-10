@@ -186,9 +186,15 @@ pub fn spray_tile(row: usize, col: usize) {
 #[wasm_bindgen]
 pub fn plant(row: usize, col: usize, crop: String) {
     let crop_type = match crop.as_str() {
-        "wheat" | "premium_wheat" | "golden_wheat" => CropType::Wheat,
-        "corn" | "premium_corn" | "golden_corn" => CropType::Corn,
-        "carrot" | "premium_carrot" | "golden_carrot" => CropType::Carrot,
+        "wheat" => CropType::Wheat,
+        "premium_wheat" => CropType::PremiumWheat,
+        "golden_wheat" => CropType::GoldenWheat,
+        "corn" => CropType::Corn,
+        "premium_corn" => CropType::PremiumCorn,
+        "golden_corn" => CropType::GoldenCorn,
+        "carrot" => CropType::Carrot,
+        "premium_carrot" => CropType::PremiumCarrot,
+        "golden_carrot" => CropType::GoldenCarrot,
         _ => CropType::Wheat,
     };
     SELECTED_CROP.with(|selected| *selected.borrow_mut() = crop_type);
@@ -202,8 +208,14 @@ pub fn plant(row: usize, col: usize, crop: String) {
                 // 新增：判断主类是否一致
                 let is_same_main_type = match (task_crop.as_str(), crop_type) {
                     ("wheat", CropType::Wheat) => true,
+                    ("premium_wheat", CropType::PremiumWheat) => true,
+                    ("golden_wheat", CropType::GoldenWheat) => true,
                     ("corn", CropType::Corn) => true,
+                    ("premium_corn", CropType::PremiumCorn) => true,
+                    ("golden_corn", CropType::GoldenCorn) => true,
                     ("carrot", CropType::Carrot) => true,
+                    ("premium_carrot", CropType::PremiumCarrot) => true,
+                    ("golden_carrot", CropType::GoldenCarrot) => true,
                     _ => false,
                 };
                 if !task.completed && is_same_main_type {
@@ -235,18 +247,36 @@ pub fn get_state(row: usize, col: usize) -> String {
             TileState::Empty => "empty".into(),
             TileState::Planted { crop, .. } => match crop {
                 CropType::Wheat => "planted_wheat".into(),
+                CropType::PremiumWheat => "planted_premium_wheat".into(),
+                CropType::GoldenWheat => "planted_golden_wheat".into(),
                 CropType::Corn => "planted_corn".into(),
+                CropType::PremiumCorn => "planted_premium_corn".into(),
+                CropType::GoldenCorn => "planted_golden_corn".into(),
                 CropType::Carrot => "planted_carrot".into(),
+                CropType::PremiumCarrot => "planted_premium_carrot".into(),
+                CropType::GoldenCarrot => "planted_golden_carrot".into(),
             },
             TileState::Mature { crop } => match crop {
                 CropType::Wheat => "mature_wheat".into(),
+                CropType::PremiumWheat => "mature_premium_wheat".into(),
+                CropType::GoldenWheat => "mature_golden_wheat".into(),
                 CropType::Corn => "mature_corn".into(),
+                CropType::PremiumCorn => "mature_premium_corn".into(),
+                CropType::GoldenCorn => "mature_golden_corn".into(),
                 CropType::Carrot => "mature_carrot".into(),
+                CropType::PremiumCarrot => "mature_premium_carrot".into(),
+                CropType::GoldenCarrot => "mature_golden_carrot".into(),
             },
             TileState::Infested { crop } => match crop {
                 CropType::Wheat => "infested_wheat".into(),
+                CropType::PremiumWheat => "infested_premium_wheat".into(),
+                CropType::GoldenWheat => "infested_golden_wheat".into(),
                 CropType::Corn => "infested_corn".into(),
+                CropType::PremiumCorn => "infested_premium_corn".into(),
+                CropType::GoldenCorn => "infested_golden_corn".into(),
                 CropType::Carrot => "infested_carrot".into(),
+                CropType::PremiumCarrot => "infested_premium_carrot".into(),
+                CropType::GoldenCarrot => "infested_golden_carrot".into(),
             },
         }
     })
@@ -482,11 +512,23 @@ fn start_render_loop() -> Result<(), JsValue> {
                 // ✅ 为虫害或正常状态统一提取图像名
                 let image = match state.as_str() {
                     "planted_wheat" | "infested_wheat" => SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_premium_wheat" | "infested_premium_wheat" => SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_golden_wheat" | "infested_golden_wheat" => SEED_IMAGE.with(|img| img.borrow().clone()),
                     "planted_corn"  | "infested_corn"  => SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_premium_corn" | "infested_premium_corn" => SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_golden_corn" | "infested_golden_corn" => SEED_IMAGE.with(|img| img.borrow().clone()),
                     "planted_carrot"| "infested_carrot"=> SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_premium_carrot" | "infested_premium_carrot" => SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_golden_carrot" | "infested_golden_carrot" => SEED_IMAGE.with(|img| img.borrow().clone()),
                     "mature_wheat" => WHEAT_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_premium_wheat" => WHEAT_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_golden_wheat" => WHEAT_IMAGE.with(|img| img.borrow().clone()),
                     "mature_corn" => CORN_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_premium_corn" => CORN_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_golden_corn" => CORN_IMAGE.with(|img| img.borrow().clone()),
                     "mature_carrot" => CARROT_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_premium_carrot" => CARROT_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_golden_carrot" => CARROT_IMAGE.with(|img| img.borrow().clone()),
                     _ => None,
                 };
         
@@ -533,9 +575,15 @@ fn start_render_loop() -> Result<(), JsValue> {
                     balance,
                     seeds.iter().map(|(item, count)| {
                         let img_src = match item.as_str() {
-                            "wheat" | "premium_wheat" | "golden_wheat" => "wheat.png",
-                            "corn" | "premium_corn" | "golden_corn" => "corn.png",
-                            "carrot" | "premium_carrot" | "golden_carrot" => "carrot.png",
+                            "wheat" => "wheat.png",
+                            "premium_wheat" => "premium_wheat.png",
+                            "golden_wheat" => "golden_wheat.png",
+                            "corn" => "corn.png",
+                            "premium_corn" => "premium_corn.png",
+                            "golden_corn" => "golden_corn.png",
+                            "carrot" => "carrot.png",
+                            "premium_carrot" => "premium_carrot.png",
+                            "golden_carrot" => "golden_carrot.png",
                             _ => "seed.png", // 兜底
                         };
                         format!(
@@ -547,7 +595,18 @@ fn start_render_loop() -> Result<(), JsValue> {
                         )
                     }).collect::<Vec<_>>().join(""),
                     crops.iter().map(|(item, count)| {
-                        let img_src = format!("{}.png", item);
+                        let img_src = match item.as_str() {
+                            "wheat" => "wheat.png",
+                            "premium_wheat" => "premium_wheat.png",
+                            "golden_wheat" => "golden_wheat.png",
+                            "corn" => "corn.png",
+                            "premium_corn" => "premium_corn.png",
+                            "golden_corn" => "golden_corn.png",
+                            "carrot" => "carrot.png",
+                            "premium_carrot" => "premium_carrot.png",
+                            "golden_carrot" => "golden_carrot.png",
+                            _ => item,
+                        };
                         let sell_price = SHOP.with(|s| s.borrow().get_crop_price(item).unwrap_or(0));
                         let sell_fn_call = format!("window.wasmBindings.try_sell_crop('{}')", item);
                         format!(
@@ -1160,6 +1219,18 @@ pub fn start() -> Result<(), JsValue> {
             
             let state = get_state(row, col);
             if state.starts_with("mature_") {
+                let crop_str = match state.as_str() {
+                    "mature_wheat" => "wheat",
+                    "mature_premium_wheat" => "premium_wheat",
+                    "mature_golden_wheat" => "golden_wheat",
+                    "mature_corn" => "corn",
+                    "mature_premium_corn" => "premium_corn",
+                    "mature_golden_corn" => "golden_corn",
+                    "mature_carrot" => "carrot",
+                    "mature_premium_carrot" => "premium_carrot",
+                    "mature_golden_carrot" => "golden_carrot",
+                    _ => "wheat", // 兜底
+                };
                 harvest(row, col);
                 web_sys::console::log_1(&format!("收获了位置 ({}, {})", row, col).into());
             }
@@ -1218,12 +1289,36 @@ pub fn start() -> Result<(), JsValue> {
         WHEAT_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
+    load_image("premium_wheat.png", |img| {
+        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+    })?;
+
+    load_image("golden_wheat.png", |img| {
+        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+    })?;
+
     load_image("corn.png", |img| {
         CORN_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
+    load_image("premium_corn.png", |img| {
+        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+    })?;
+
+    load_image("golden_corn.png", |img| {
+        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+    })?;
+
     load_image("carrot.png", |img| {
         CARROT_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+    })?;
+
+    load_image("premium_carrot.png", |img| {
+        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+    })?;
+
+    load_image("golden_carrot.png", |img| {
+        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
     {

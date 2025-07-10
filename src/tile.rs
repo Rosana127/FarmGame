@@ -4,8 +4,14 @@ use crate::utils::show_message;
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CropType {
     Wheat,
+    PremiumWheat,
+    GoldenWheat,
     Corn,
+    PremiumCorn,
+    GoldenCorn,
     Carrot,
+    PremiumCarrot,
+    GoldenCarrot,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,16 +43,28 @@ impl CropType {
     pub fn sell_price(&self) -> u32 {
         match self {
             CropType::Wheat => 15,
+            CropType::PremiumWheat => 25,
+            CropType::GoldenWheat => 50,
             CropType::Corn => 25,
+            CropType::PremiumCorn => 40,
+            CropType::GoldenCorn => 70,
             CropType::Carrot => 20,
+            CropType::PremiumCarrot => 32,
+            CropType::GoldenCarrot => 60,
         }
     }
 
     pub fn base_growth_time(&self) -> u32 {
         match self {
             CropType::Wheat => 10,
+            CropType::PremiumWheat => 14,
+            CropType::GoldenWheat => 20,
             CropType::Corn => 15,
+            CropType::PremiumCorn => 20,
+            CropType::GoldenCorn => 28,
             CropType::Carrot => 12,
+            CropType::PremiumCarrot => 16,
+            CropType::GoldenCarrot => 24,
         }
     }
 
@@ -63,32 +81,56 @@ impl CropType {
     pub fn display_name(&self) -> &'static str {
         match self {
             CropType::Wheat => "小麦",
+            CropType::PremiumWheat => "优质小麦",
+            CropType::GoldenWheat => "金色小麦",
             CropType::Corn => "玉米",
+            CropType::PremiumCorn => "优质玉米",
+            CropType::GoldenCorn => "金色玉米",
             CropType::Carrot => "胡萝卜",
+            CropType::PremiumCarrot => "优质胡萝卜",
+            CropType::GoldenCarrot => "金色胡萝卜",
         }
     }
 
     pub fn description(&self) -> &'static str {
         match self {
             CropType::Wheat => "基础农作物，生长快速，用途广泛",
+            CropType::PremiumWheat => "优质小麦，产量更高，生长略慢",
+            CropType::GoldenWheat => "金色小麦，极高价值，生长周期长",
             CropType::Corn => "高价值作物，生长较慢但收益丰厚",
+            CropType::PremiumCorn => "优质玉米，产量更高，生长更久",
+            CropType::GoldenCorn => "金色玉米，极高价值，生长周期最长",
             CropType::Carrot => "营养丰富的根茎类作物，中等生长周期",
+            CropType::PremiumCarrot => "优质胡萝卜，产量更高，生长略慢",
+            CropType::GoldenCarrot => "金色胡萝卜，极高价值，生长周期长",
         }
     }
 
     pub fn characteristics(&self) -> &'static str {
         match self {
             CropType::Wheat => "• 适应性强\n• 收获量稳定\n• 市场需求量大",
+            CropType::PremiumWheat => "• 更高产量\n• 稳定收益\n• 适合大面积种植",
+            CropType::GoldenWheat => "• 极高售价\n• 稀有作物\n• 需要耐心等待",
             CropType::Corn => "• 营养价值高\n• 单株产量大\n• 储存时间长",
+            CropType::PremiumCorn => "• 更高产量\n• 高营养\n• 适合搭配肥料",
+            CropType::GoldenCorn => "• 极高售价\n• 稀有作物\n• 需要耐心等待",
             CropType::Carrot => "• 富含维生素\n• 抗寒性好\n• 土壤要求低",
+            CropType::PremiumCarrot => "• 更高产量\n• 健康营养\n• 适合多地块轮作",
+            CropType::GoldenCarrot => "• 极高售价\n• 稀有作物\n• 需要耐心等待",
         }
     }
 
     pub fn planting_tips(&self) -> &'static str {
         match self {
             CropType::Wheat => "建议: 适合初学者种植，可大面积种植获得稳定收入",
+            CropType::PremiumWheat => "建议: 适合追求高产的玩家，注意生长周期",
+            CropType::GoldenWheat => "建议: 适合后期冲刺高收益，需耐心等待成熟",
             CropType::Corn => "建议: 高价值作物，建议使用肥料缩短生长时间",
+            CropType::PremiumCorn => "建议: 适合搭配高级肥料，追求极致产出",
+            CropType::GoldenCorn => "建议: 适合后期冲刺高收益，需耐心等待成熟",
             CropType::Carrot => "建议: 平衡型作物，适合搭配其他作物种植",
+            CropType::PremiumCarrot => "建议: 适合多样化种植，搭配轮作提升收益",
+            CropType::GoldenCarrot => "建议: 适合后期冲刺高收益，需耐心等待成熟",
         }
     }
 }
