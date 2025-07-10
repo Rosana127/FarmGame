@@ -717,12 +717,13 @@
           <div class="task-desc">进度：${task.progress} / ${task.target}</div>
           <div class="task-progress-bar"><div class="task-progress-inner" style="width:${percent}%;"></div></div>
           <div class="task-reward">奖励：<span>💰${task.reward}</span></div>
-          <button class="task-btn" onclick="claimTaskReward(${task.id})" ${!task.completed || task.claimed ? 'disabled' : ''}>${task.claimed ? '已领取' : '领取奖励'}</button>
+          <button class="task-btn" onclick="claimTaskReward(event, ${task.id})" ${!task.completed || task.claimed ? 'disabled' : ''}>${task.claimed ? '已领取' : '领取奖励'}</button>
         </div>`;
       }
       taskList.innerHTML = html;
     }
-    window.claimTaskReward = function(taskId) {
+    window.claimTaskReward = function(event, taskId) {
+      if (event) event.stopPropagation(); // 阻止冒泡，防止面板收起
       if (window.wasmBindings && window.wasmBindings.claim_task_reward) {
         const ok = window.wasmBindings.claim_task_reward(taskId);
         if (ok) {

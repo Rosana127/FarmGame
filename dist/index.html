@@ -5,8 +5,8 @@
     <title>🌾 Farm Sim Paradise</title>
     
 <script type="module">
-import init, * as bindings from '/farm_sim-c0ffc8094a98724d.js';
-const wasm = await init({ module_or_path: '/farm_sim-c0ffc8094a98724d_bg.wasm' });
+import init, * as bindings from '/farm_sim-b6f5e9f7dc666c12.js';
+const wasm = await init({ module_or_path: '/farm_sim-b6f5e9f7dc666c12_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -647,7 +647,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     
     
     
-  <link rel="modulepreload" href="/farm_sim-c0ffc8094a98724d.js" crossorigin="anonymous" integrity="sha384-Wryr3idA3Tm7tze+TyhlIinHFciJCnnH5yfFc2nlhshxwCxr0JSQn/8ONudFdNSz"><link rel="preload" href="/farm_sim-c0ffc8094a98724d_bg.wasm" crossorigin="anonymous" integrity="sha384-NPKo5lWK8dI91XMjZI2yW+ZQ0RbUF6mJIciHqcKIGlB2bNiFp17IZWYDpwSzvUkS" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/farm_sim-b6f5e9f7dc666c12.js" crossorigin="anonymous" integrity="sha384-f+1AgJkIAd1JdqvYPqThsfsFeDMFIxJ1PyYH71Blg/p1oZkBD5HAKPxgF16GyovQ"><link rel="preload" href="/farm_sim-b6f5e9f7dc666c12_bg.wasm" crossorigin="anonymous" integrity="sha384-QyZZNdJm4neG1nw0qXzYmh3dG3I3XP1ZODNuATysiyLIbCKNRPget4uTq7GGp0iR" as="fetch" type="application/wasm"></head>
   <body>
     <div class="game-header">
       <h1 class="game-title">🌾 Farm Sim Paradise</h1>
@@ -728,12 +728,13 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
           <div class="task-desc">进度：${task.progress} / ${task.target}</div>
           <div class="task-progress-bar"><div class="task-progress-inner" style="width:${percent}%;"></div></div>
           <div class="task-reward">奖励：<span>💰${task.reward}</span></div>
-          <button class="task-btn" onclick="claimTaskReward(${task.id})" ${!task.completed || task.claimed ? 'disabled' : ''}>${task.claimed ? '已领取' : '领取奖励'}</button>
+          <button class="task-btn" onclick="claimTaskReward(event, ${task.id})" ${!task.completed || task.claimed ? 'disabled' : ''}>${task.claimed ? '已领取' : '领取奖励'}</button>
         </div>`;
       }
       taskList.innerHTML = html;
     }
-    window.claimTaskReward = function(taskId) {
+    window.claimTaskReward = function(event, taskId) {
+      if (event) event.stopPropagation(); // 阻止冒泡，防止面板收起
       if (window.wasmBindings && window.wasmBindings.claim_task_reward) {
         const ok = window.wasmBindings.claim_task_reward(taskId);
         if (ok) {

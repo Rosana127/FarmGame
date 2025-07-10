@@ -18,6 +18,8 @@ use std::rc::Rc;
 use serde::{Serialize, Deserialize};
 use serde_json;
 use wasm_bindgen_futures::spawn_local;
+use rand::seq::SliceRandom;
+use rand::Rng;
 
 // Import modules and types
 
@@ -37,6 +39,7 @@ struct GameState {
     inventory_crops: std::collections::HashMap<String, u32>,
     inventory_fertilizers: std::collections::HashMap<String, u32>,
     balance: u32,
+    tasks: Vec<Task>, // 新增字段
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -195,8 +198,15 @@ pub fn plant(row: usize, col: usize, crop: String) {
         TASKS.with(|tasks| {
             let mut tasks = tasks.borrow_mut();
             for task in tasks.iter_mut() {
-                let TaskType::PlantCrop { crop: ref task_crop, count: _ } = task.task_type;
-                if !task.completed && crop == *task_crop {
+                let TaskType::PlantCrop { crop: ref task_crop, count: _ } = &task.task_type;
+                // 新增：判断主类是否一致
+                let is_same_main_type = match (task_crop.as_str(), crop_type) {
+                    ("wheat", CropType::Wheat) => true,
+                    ("corn", CropType::Corn) => true,
+                    ("carrot", CropType::Carrot) => true,
+                    _ => false,
+                };
+                if !task.completed && is_same_main_type {
                     task.progress += 1;
                     if task.progress >= task.target {
                         task.completed = true;
@@ -344,6 +354,7 @@ pub fn save_game() -> Result<(), JsValue> {
         
         let (seeds, crops, fertilizers) = farm.get_full_inventory();
         let balance = SHOP.with(|shop| shop.borrow().get_balance());
+        let tasks = TASKS.with(|tasks| tasks.borrow().clone()); // 新增
         
         GameState {
             farm_grid: grid,
@@ -351,6 +362,7 @@ pub fn save_game() -> Result<(), JsValue> {
             inventory_crops: crops,
             inventory_fertilizers: fertilizers,
             balance,
+            tasks, // 新增
         }
     });
 
@@ -398,6 +410,9 @@ pub fn load_game() -> Result<(), JsValue> {
         SHOP.with(|shop| {
             let mut shop = shop.borrow_mut();
             shop.balance = game_state.balance;
+        });
+        TASKS.with(|tasks| {
+            *tasks.borrow_mut() = game_state.tasks.clone(); // 新增
         });
     }
     Ok(())
@@ -771,16 +786,44 @@ pub fn get_tasks() -> JsValue {
     })
 }
 
+fn generate_new_task(last_id: u32) -> Task {
+    let crops = ["wheat", "corn", "carrot"];
+    let mut rng = rand::thread_rng();
+    let crop = crops.choose(&mut rng).unwrap().to_string();
+    let count = rng.gen_range(3..=15);
+    let reward = count * (10 + rng.gen_range(1..=5));
+    Task {
+        id: last_id + 1,
+        description: format!("种植{} {}个", match crop.as_str() {
+            "wheat" => "小麦",
+            "corn" => "玉米",
+            "carrot" => "胡萝卜",
+            _ => &crop,
+        }, count),
+        task_type: TaskType::PlantCrop { crop: crop.clone(), count },
+        progress: 0,
+        target: count,
+        reward,
+        completed: false,
+        claimed: false,
+    }
+}
+
 #[wasm_bindgen]
 pub fn claim_task_reward(task_id: u32) -> bool {
     let mut claimed = false;
     TASKS.with(|tasks| {
         let mut tasks = tasks.borrow_mut();
-        if let Some(task) = tasks.iter_mut().find(|t| t.id == task_id) {
+        if let Some(pos) = tasks.iter().position(|t| t.id == task_id) {
+            let task = &mut tasks[pos];
             if task.completed && !task.claimed {
                 SHOP.with(|shop| shop.borrow_mut().balance += task.reward);
                 task.claimed = true;
                 claimed = true;
+                // 生成新任务并替换原任务
+                let new_id = tasks.iter().map(|t| t.id).max().unwrap_or(0);
+                let new_task = generate_new_task(new_id);
+                tasks[pos] = new_task;
             }
         }
     });
