@@ -179,13 +179,13 @@ pub fn spray_tile(row: usize, col: usize) {
 #[wasm_bindgen]
 pub fn plant(row: usize, col: usize, crop: String) {
     let crop_type = match crop.as_str() {
-        "wheat" => CropType::Wheat,
-        "corn" => CropType::Corn,
-        "carrot" => CropType::Carrot,
+        "wheat" | "premium_wheat" | "golden_wheat" => CropType::Wheat,
+        "corn" | "premium_corn" | "golden_corn" => CropType::Corn,
+        "carrot" | "premium_carrot" | "golden_carrot" => CropType::Carrot,
         _ => CropType::Wheat,
     };
     SELECTED_CROP.with(|selected| *selected.borrow_mut() = crop_type);
-    let success = FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type));
+    let success = FARM.with(|farm| farm.borrow_mut().plant(row, col, crop_type, crop.clone()));
     if success {
         play_sound("plant_seed.mp3");
         TASKS.with(|tasks| {
@@ -513,7 +513,12 @@ fn start_render_loop() -> Result<(), JsValue> {
                     "#,
                     balance,
                     seeds.iter().map(|(item, count)| {
-                        let img_src = format!("{}.png", item);
+                        let img_src = match item.as_str() {
+                            "wheat" | "premium_wheat" | "golden_wheat" => "wheat.png",
+                            "corn" | "premium_corn" | "golden_corn" => "corn.png",
+                            "carrot" | "premium_carrot" | "golden_carrot" => "carrot.png",
+                            _ => "seed.png", // 兜底
+                        };
                         format!(
                             r#"<div class="inventory-item" draggable="true" data-seed-type="{}">
                                 <img src="{}" />
