@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 use crate::utils::show_message;
 
+// 表示作物类型
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CropType {
     Wheat,
@@ -14,6 +15,7 @@ pub enum CropType {
     GoldenCarrot,
 }
 
+// 表示肥料类型
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FertilizerType {
     None,
@@ -22,6 +24,7 @@ pub enum FertilizerType {
     Super,
 }
 
+// 表示地块状态
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TileState {
     Empty,
@@ -34,11 +37,13 @@ pub enum TileState {
     Infested { crop: CropType }, // 🐛 新增虫害状态
 }
 
+// 表示地块
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Tile {
     pub state: TileState,
 }
 
+// 实现作物类型方法
 impl CropType {
     pub fn sell_price(&self) -> u32 {
         match self {
@@ -135,6 +140,7 @@ impl CropType {
     }
 }
 
+// 实现肥料类型方法
 impl FertilizerType {
     pub fn from_string(s: &str) -> Self {
         match s {
@@ -173,6 +179,7 @@ impl FertilizerType {
     }
 }
 
+// 实现地块方法
 impl Tile {
     pub fn new() -> Self {
         Tile {
@@ -180,18 +187,22 @@ impl Tile {
         }
     }
 
+    // 判断地块是否可以种植
     pub fn can_plant(&self) -> bool {
         matches!(self.state, TileState::Empty)
     }
 
+    // 判断地块是否可以收获
     pub fn can_harvest(&self) -> bool {
         matches!(self.state, TileState::Mature { .. })
     }
 
+    // 判断地块是否可以施肥
     pub fn can_fertilize(&self) -> bool {
         matches!(self.state, TileState::Planted { fertilizer: FertilizerType::None, .. })
     }
 
+    // 获取地块信息
     pub fn get_crop_info(&self) -> String {
         match self.state {
             TileState::Empty => {
@@ -251,6 +262,7 @@ impl Tile {
         }
     }
 
+    // 施肥     
     pub fn apply_fertilizer(&mut self, fertilizer: FertilizerType) -> bool {
         match self.state {
             TileState::Planted { crop, timer, fertilizer: FertilizerType::None } => {

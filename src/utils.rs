@@ -3,7 +3,7 @@ use web_sys::window;
 use wasm_bindgen::closure::Closure;
 use web_sys::HtmlAudioElement;
 
-
+// 显示消息
 pub fn show_message(msg: &str) {
     if let Some(win) = window() {
         if let Some(doc) = win.document() {
@@ -44,12 +44,14 @@ pub fn show_message(msg: &str) {
 
 
 
+// 播放背景音乐
 pub fn play_background_music() {
     let audio = HtmlAudioElement::new_with_src("audio/background_music.mp3").unwrap();
     audio.set_loop(true); // 设置为循环播放
     let _ = audio.play(); // 播放
 }
 
+// 播放音效
 pub fn play_sound(file: &str) {
     if let Ok(audio) = HtmlAudioElement::new_with_src(&format!("audio/{}", file)) {
         let _ = audio.play(); // 播放一次，不循环

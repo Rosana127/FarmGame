@@ -4,6 +4,8 @@ pub mod utils;
 use crate::tile::FertilizerType;
 use crate::utils::play_sound;
 use crate::utils::play_background_music;
+
+
 use web_sys::{
     window,
     HtmlCanvasElement,
@@ -21,8 +23,8 @@ use wasm_bindgen_futures::spawn_local;
 use rand::seq::SliceRandom;
 use rand::Rng;
 
-// Import modules and types
 
+// 导入模块和类型
 mod shop;
 mod tile;
 mod inventory;
@@ -32,6 +34,7 @@ use crate::inventory::Inventory;
 use crate::shop::Shop;
 use crate::farm::Farm;
 
+// 表示游戏状态，包含农场网格、库存、余额和任务
 #[derive(Serialize, Deserialize)]
 struct GameState {
     farm_grid: Vec<Vec<TileState>>,
@@ -42,11 +45,13 @@ struct GameState {
     tasks: Vec<Task>, // 新增字段
 }
 
+// 表示任务类型，包含种植作物
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum TaskType {
     PlantCrop { crop: String, count: u32 },
 }
 
+// 表示任务，包含任务类型、进度、目标和奖励
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Task {
     pub id: u32,
@@ -59,6 +64,7 @@ pub struct Task {
     pub claimed: bool,
 }
 
+// 定义线程本地变量，用于存储农场、商店、图片、选择作物、选择肥料、加载计数、提示更新计时器、当前悬停位置和虫害保护标志
 thread_local! {
     static FARM: RefCell<Farm> = RefCell::new(Farm::new(10, 10));
     static SHOP: RefCell<Shop> = RefCell::new(Shop::new());
@@ -67,13 +73,23 @@ thread_local! {
     static CARROT_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
     static SEED_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
     static SHOP_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
+    static PREMIUM_WHEAT_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
+    static GOLDEN_WHEAT_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
+    static PREMIUM_CORN_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
+    static GOLDEN_CORN_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
+    static PREMIUM_CARROT_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
+    static GOLDEN_CARROT_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
     static SELECTED_CROP: RefCell<CropType> = RefCell::new(CropType::Wheat);
     static SELECTED_FERTILIZER: RefCell<String> = RefCell::new("basic_fertilizer".to_string());
     static LOADED_COUNT: RefCell<u32> = RefCell::new(0);
     static TOOLTIP_UPDATE_TIMER: RefCell<Option<i32>> = RefCell::new(None);
     static CURRENT_HOVERED_POSITION: RefCell<Option<(usize, usize, i32, i32)>> = RefCell::new(None);
     static BUG_PROTECTION_ENABLED: RefCell<bool> = RefCell::new(false);
+    static PREMIUM_SEED_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
+    static GOLD_SEED_IMAGE: RefCell<Option<HtmlImageElement>> = RefCell::new(None);
+    
 
+    // 定义任务列表
     static TASKS: RefCell<Vec<Task>> = RefCell::new(vec![
         Task {
             id: 1,
@@ -108,13 +124,13 @@ thread_local! {
     ]);
 }
 
-
+// 尝试播放音乐
 #[wasm_bindgen]
 pub fn try_play_music() {
     crate::utils::play_background_music();
 }
 
-
+// 处理时间流逝
 #[wasm_bindgen]
 pub fn tick() {
     BUG_PROTECTION_ENABLED.with(|flag| {
@@ -127,6 +143,8 @@ pub fn tick() {
         });
     });
 }
+
+// 应用虫害保护
 #[wasm_bindgen]
 pub fn apply_bug_protection() {
     BUG_PROTECTION_ENABLED.with(|flag| *flag.borrow_mut() = true);
@@ -152,12 +170,13 @@ pub fn apply_bug_protection() {
     let _ = save_game();
 }
 
-
+// 获取作物信息
 #[wasm_bindgen]
 pub fn get_crop_info(row: usize, col: usize) -> String {
     FARM.with(|farm| farm.borrow().get_crop_info(row, col))
 }
 
+// 喷洒地块
 #[wasm_bindgen]
 pub fn spray_tile(row: usize, col: usize) {
     FARM.with(|farm| {
@@ -183,6 +202,7 @@ pub fn spray_tile(row: usize, col: usize) {
 }
 
 
+// 种植作物
 #[wasm_bindgen]
 pub fn plant(row: usize, col: usize, crop: String) {
     let crop_type = match crop.as_str() {
@@ -232,6 +252,7 @@ pub fn plant(row: usize, col: usize, crop: String) {
     }
 }
 
+// 收获作物
 #[wasm_bindgen]
 pub fn harvest(row: usize, col: usize) {
     FARM.with(|farm| farm.borrow_mut().harvest(row, col));
@@ -239,6 +260,7 @@ pub fn harvest(row: usize, col: usize) {
     let _ = save_game();
 }
 
+// 获取地块状态
 #[wasm_bindgen]
 pub fn get_state(row: usize, col: usize) -> String {
     FARM.with(|farm| {
@@ -282,7 +304,7 @@ pub fn get_state(row: usize, col: usize) -> String {
     })
 }
 
-
+// 施肥
 #[wasm_bindgen]
 pub fn fertilize(row: usize, col: usize) -> bool {
     let fertilizer_type = SELECTED_FERTILIZER.with(|f| f.borrow().clone());
@@ -295,11 +317,13 @@ pub fn fertilize(row: usize, col: usize) -> bool {
     result
 }
 
+// 选择肥料
 #[wasm_bindgen]
 pub fn select_fertilizer(fertilizer_type: String) {
     SELECTED_FERTILIZER.with(|f| *f.borrow_mut() = fertilizer_type);
 }
 
+// 购买肥料
 #[wasm_bindgen]
 pub fn buy_fertilizer(fertilizer_type: String) -> bool {
     let result = SHOP.with(|shop| {
@@ -322,6 +346,7 @@ pub fn buy_fertilizer(fertilizer_type: String) -> bool {
     result
 }
 
+// 获取完整库存
 #[wasm_bindgen]
 pub fn get_full_inventory() -> JsValue {
     FARM.with(|farm| {
@@ -330,6 +355,7 @@ pub fn get_full_inventory() -> JsValue {
     })
 }
 
+// 获取库存
 #[wasm_bindgen]
 pub fn get_inventory() -> JsValue {
     FARM.with(|farm| {
@@ -338,11 +364,13 @@ pub fn get_inventory() -> JsValue {
     })
 }
 
+// 获取余额
 #[wasm_bindgen]
 pub fn get_balance() -> u32 {
     SHOP.with(|shop| shop.borrow().get_balance())
 }
 
+// 购买种子
 #[wasm_bindgen]
 pub fn buy_seed(seed_type: String) -> bool {
     let result = SHOP.with(|shop| {
@@ -365,6 +393,7 @@ pub fn buy_seed(seed_type: String) -> bool {
     result
 }
 
+// 出售作物
 #[wasm_bindgen]
 pub fn sell_crop(crop_type: String) {
     SHOP.with(|shop| {
@@ -374,6 +403,7 @@ pub fn sell_crop(crop_type: String) {
     let _ = save_game();
 }
 
+// 保存游戏状态
 #[wasm_bindgen]
 pub fn save_game() -> Result<(), JsValue> {
     let game_state = FARM.with(|farm| {
@@ -402,6 +432,7 @@ pub fn save_game() -> Result<(), JsValue> {
     Ok(())
 }
 
+// 清除地块
 #[wasm_bindgen]
 pub fn clear_tile(row: usize, col: usize) {
     FARM.with(|farm| {
@@ -417,7 +448,7 @@ pub fn clear_tile(row: usize, col: usize) {
     let _ = save_game();
 }
 
-
+// 加载游戏状态
 #[wasm_bindgen]
 pub fn load_game() -> Result<(), JsValue> {
     let storage = window().unwrap().local_storage()?.unwrap();
@@ -448,6 +479,7 @@ pub fn load_game() -> Result<(), JsValue> {
     Ok(())
 }
 
+// 清除保存
 #[wasm_bindgen]
 pub fn clear_save() -> Result<(), JsValue> {
     let storage = window().unwrap().local_storage()?.unwrap();
@@ -467,6 +499,7 @@ pub fn clear_save() -> Result<(), JsValue> {
     Ok(())
 }
 
+// 开始渲染循环
 fn start_render_loop() -> Result<(), JsValue> {
     let win = window().unwrap();
     let document = win.document().unwrap();
@@ -512,23 +545,26 @@ fn start_render_loop() -> Result<(), JsValue> {
                 // ✅ 为虫害或正常状态统一提取图像名
                 let image = match state.as_str() {
                     "planted_wheat" | "infested_wheat" => SEED_IMAGE.with(|img| img.borrow().clone()),
-                    "planted_premium_wheat" | "infested_premium_wheat" => SEED_IMAGE.with(|img| img.borrow().clone()),
-                    "planted_golden_wheat" | "infested_golden_wheat" => SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_premium_wheat" | "infested_premium_wheat" => PREMIUM_SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_golden_wheat" | "infested_golden_wheat" => GOLD_SEED_IMAGE.with(|img| img.borrow().clone()),
+                    
                     "planted_corn"  | "infested_corn"  => SEED_IMAGE.with(|img| img.borrow().clone()),
-                    "planted_premium_corn" | "infested_premium_corn" => SEED_IMAGE.with(|img| img.borrow().clone()),
-                    "planted_golden_corn" | "infested_golden_corn" => SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_premium_corn" | "infested_premium_corn" => PREMIUM_SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_golden_corn" | "infested_golden_corn" => GOLD_SEED_IMAGE.with(|img| img.borrow().clone()),
+                    
                     "planted_carrot"| "infested_carrot"=> SEED_IMAGE.with(|img| img.borrow().clone()),
-                    "planted_premium_carrot" | "infested_premium_carrot" => SEED_IMAGE.with(|img| img.borrow().clone()),
-                    "planted_golden_carrot" | "infested_golden_carrot" => SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_premium_carrot" | "infested_premium_carrot" => PREMIUM_SEED_IMAGE.with(|img| img.borrow().clone()),
+                    "planted_golden_carrot" | "infested_golden_carrot" => GOLD_SEED_IMAGE.with(|img| img.borrow().clone()),
+                    
                     "mature_wheat" => WHEAT_IMAGE.with(|img| img.borrow().clone()),
-                    "mature_premium_wheat" => WHEAT_IMAGE.with(|img| img.borrow().clone()),
-                    "mature_golden_wheat" => WHEAT_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_premium_wheat" => PREMIUM_WHEAT_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_golden_wheat" => GOLDEN_WHEAT_IMAGE.with(|img| img.borrow().clone()),
                     "mature_corn" => CORN_IMAGE.with(|img| img.borrow().clone()),
-                    "mature_premium_corn" => CORN_IMAGE.with(|img| img.borrow().clone()),
-                    "mature_golden_corn" => CORN_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_premium_corn" => PREMIUM_CORN_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_golden_corn" => GOLDEN_CORN_IMAGE.with(|img| img.borrow().clone()),
                     "mature_carrot" => CARROT_IMAGE.with(|img| img.borrow().clone()),
-                    "mature_premium_carrot" => CARROT_IMAGE.with(|img| img.borrow().clone()),
-                    "mature_golden_carrot" => CARROT_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_premium_carrot" => PREMIUM_CARROT_IMAGE.with(|img| img.borrow().clone()),
+                    "mature_golden_carrot" => GOLDEN_CARROT_IMAGE.with(|img| img.borrow().clone()),
                     _ => None,
                 };
         
@@ -544,12 +580,14 @@ fn start_render_loop() -> Result<(), JsValue> {
             }
         }
 
+        // 渲染库存
         if let Some(inventory_el) = document.get_element_by_id("inventory") {
             let inventory_el = inventory_el.dyn_into::<HtmlElement>().unwrap();
             if inventory_el.class_list().contains("active") {
                 let (seeds, crops, fertilizers) = FARM.with(|farm| farm.borrow().get_full_inventory());
                 let balance = SHOP.with(|shop| shop.borrow().get_balance());
 
+                // 渲染库存HTML
                 let inventory_html = format!(
                     r#"
                     <div class="balance">金币: {}</div>
@@ -640,12 +678,14 @@ fn start_render_loop() -> Result<(), JsValue> {
 
                 inventory_el.set_inner_html(&inventory_html);
 
+                // 渲染种子
                 let seed_items = inventory_el.get_elements_by_class_name("inventory-item");
                 for i in 0..seed_items.length() {
                     if let Some(item) = seed_items.get_with_index(i) {
                         let item = item.dyn_into::<HtmlElement>().unwrap();
                         let seed_type = item.get_attribute("data-seed-type").unwrap_or_default();
-                        
+
+                        // 添加拖拽事件
                         let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
                             let data_transfer = event.data_transfer().unwrap();
                             let _ = data_transfer.set_data("text/plain", &seed_type);
@@ -656,6 +696,7 @@ fn start_render_loop() -> Result<(), JsValue> {
                         let _ = item.add_event_listener_with_callback("dragstart", closure.as_ref().unchecked_ref());
                         closure.forget();
 
+                        // 添加拖拽结束事件
                         let closure = Closure::wrap(Box::new(move |event: web_sys::DragEvent| {
                             let target = event.target().unwrap();
                             let element = target.dyn_into::<HtmlElement>().unwrap();
@@ -668,6 +709,7 @@ fn start_render_loop() -> Result<(), JsValue> {
             }
         }
 
+        // 渲染商店
         if let Some(shop_el) = document.get_element_by_id("shop-items") {
             let balance = SHOP.with(|shop| shop.borrow().get_balance());
             let shop_html = format!(
@@ -700,19 +742,19 @@ fn start_render_loop() -> Result<(), JsValue> {
                     <h3>高级种子</h3>
                     <div class="shop-items-grid">
                         <div class="shop-item">
-                            <img src="wheat.png" />
+                            <img src="premium_wheat.png" />
                             <div>优质小麦种子</div>
                             <div class="price">25金币</div>
                             <button onclick="window.wasmBindings.buy_seed('premium_wheat')">购买</button>
                         </div>
                         <div class="shop-item">
-                            <img src="corn.png" />
+                            <img src="premium_corn.png" />
                             <div>优质玉米种子</div>
                             <div class="price">35金币</div>
                             <button onclick="window.wasmBindings.buy_seed('premium_corn')">购买</button>
                         </div>
                         <div class="shop-item">
-                            <img src="carrot.png" />
+                            <img src="premium_carrot.png" />
                             <div>优质胡萝卜种子</div>
                             <div class="price">30金币</div>
                             <button onclick="window.wasmBindings.buy_seed('premium_carrot')">购买</button>
@@ -723,19 +765,19 @@ fn start_render_loop() -> Result<(), JsValue> {
                     <h3>特殊种子</h3>
                     <div class="shop-items-grid">
                         <div class="shop-item">
-                            <img src="wheat.png" />
+                            <img src="golden_wheat.png" />
                             <div>金色小麦种子</div>
                             <div class="price">50金币</div>
                             <button onclick="window.wasmBindings.buy_seed('golden_wheat')">购买</button>
                         </div>
                         <div class="shop-item">
-                            <img src="corn.png" />
+                            <img src="golden_corn.png" />
                             <div>金色玉米种子</div>
                             <div class="price">60金币</div>
                             <button onclick="window.wasmBindings.buy_seed('golden_corn')">购买</button>
                         </div>
                         <div class="shop-item">
-                            <img src="carrot.png" />
+                            <img src="golden_carrot.png" />
                             <div>金色胡萝卜种子</div>
                             <div class="price">55金币</div>
                             <button onclick="window.wasmBindings.buy_seed('golden_carrot')">购买</button>
@@ -774,6 +816,7 @@ fn start_render_loop() -> Result<(), JsValue> {
             shop_el.set_inner_html(&shop_html);
         }
 
+        // 设置定时器
         let _ = window().unwrap().set_timeout_with_callback_and_timeout_and_arguments_0(
             f_clone
                 .borrow()
@@ -794,6 +837,7 @@ fn start_render_loop() -> Result<(), JsValue> {
     Ok(())
 }
 
+// 加载图片
 fn load_image(src: &str, setter: fn(HtmlImageElement)) -> Result<(), JsValue> {
     let document = window().unwrap().document().unwrap();
     let img = document.create_element("img")?.dyn_into::<HtmlImageElement>()?;
@@ -804,7 +848,7 @@ fn load_image(src: &str, setter: fn(HtmlImageElement)) -> Result<(), JsValue> {
         LOADED_COUNT.with(|count| {
             let mut count = count.borrow_mut();
             *count += 1;
-            if *count == 4 {
+            if *count == 10 {
                 start_render_loop().unwrap();
             }
         });
@@ -817,6 +861,7 @@ fn load_image(src: &str, setter: fn(HtmlImageElement)) -> Result<(), JsValue> {
     Ok(())
 }
 
+// 尝试出售作物
 #[wasm_bindgen]
 pub fn try_sell_crop(crop_type: String) -> bool {
     let mut sold = false;
@@ -839,12 +884,14 @@ pub fn try_sell_crop(crop_type: String) -> bool {
 }
 
 #[wasm_bindgen]
+// 获取任务
 pub fn get_tasks() -> JsValue {
     TASKS.with(|tasks| {
         serde_wasm_bindgen::to_value(&*tasks.borrow()).unwrap()
     })
 }
 
+// 生成新任务
 fn generate_new_task(last_id: u32) -> Task {
     let crops = ["wheat", "corn", "carrot"];
     let mut rng = rand::thread_rng();
@@ -869,6 +916,7 @@ fn generate_new_task(last_id: u32) -> Task {
 }
 
 #[wasm_bindgen]
+// 领取任务奖励
 pub fn claim_task_reward(task_id: u32) -> bool {
     let mut claimed = false;
     TASKS.with(|tasks| {
@@ -894,11 +942,14 @@ pub fn claim_task_reward(task_id: u32) -> bool {
 }
 
 #[wasm_bindgen(start)]
+// 开始游戏
 pub fn start() -> Result<(), JsValue> {
     let _ = load_game();
 
+    // 播放背景音乐
     play_background_music();
 
+    // 获取窗口和文档
     let win = window().ok_or_else(|| JsValue::from_str("无法获取 window"))?;
     let document = win.document().ok_or_else(|| JsValue::from_str("无法获取 document"))?;
 
@@ -1086,6 +1137,7 @@ pub fn start() -> Result<(), JsValue> {
         });
     }
 
+    // 施肥
     {
         let canvas = canvas.clone();
         let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
@@ -1107,6 +1159,7 @@ pub fn start() -> Result<(), JsValue> {
         closure.forget();
     }
 
+    // 打开背包
     {
         let bag_icon = document.get_element_by_id("bag-icon")
             .ok_or_else(|| JsValue::from_str("找不到 bag-icon 元素"))?;
@@ -1127,6 +1180,7 @@ pub fn start() -> Result<(), JsValue> {
         closure.forget();
     }
 
+    // 切换面板
     {
         let tabs = document.get_elements_by_class_name("panel-tab");
         for i in 0..tabs.length() {
@@ -1178,6 +1232,7 @@ pub fn start() -> Result<(), JsValue> {
         }
     }
 
+    // 关闭面板
     {
         let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
             let document = web_sys::window().unwrap().document().unwrap();
@@ -1210,6 +1265,7 @@ pub fn start() -> Result<(), JsValue> {
         closure.forget();
     }
 
+    // 点击地块
     {
         let canvas = canvas.clone();
         let closure = Closure::wrap(Box::new(move |event: MouseEvent| {
@@ -1239,6 +1295,7 @@ pub fn start() -> Result<(), JsValue> {
         closure.forget();
     }
 
+    // 拖拽地块
     {
         let canvas_rc = Rc::new(canvas.clone());
         let canvas_clone = canvas_rc.clone();
@@ -1251,6 +1308,7 @@ pub fn start() -> Result<(), JsValue> {
         closure.forget();
     }
 
+    // 拖拽地块结束
     {
         let canvas_rc = Rc::new(canvas.clone());
         let canvas_clone = canvas_rc.clone();
@@ -1281,8 +1339,15 @@ pub fn start() -> Result<(), JsValue> {
         closure.forget();
     }
     
+    // 加载图片
     load_image("seed.png", |img| {
         SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+    })?;
+    load_image("premium_seed.png", |img| {
+        PREMIUM_SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+    })?;
+    load_image("gold_seed.png", |img| {
+        GOLD_SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
     load_image("wheat.png", |img| {
@@ -1290,11 +1355,11 @@ pub fn start() -> Result<(), JsValue> {
     })?;
 
     load_image("premium_wheat.png", |img| {
-        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+        PREMIUM_WHEAT_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
     load_image("golden_wheat.png", |img| {
-        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+        GOLDEN_WHEAT_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
     load_image("corn.png", |img| {
@@ -1302,11 +1367,11 @@ pub fn start() -> Result<(), JsValue> {
     })?;
 
     load_image("premium_corn.png", |img| {
-        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+        PREMIUM_CORN_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
     load_image("golden_corn.png", |img| {
-        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+        GOLDEN_CORN_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
     load_image("carrot.png", |img| {
@@ -1314,13 +1379,14 @@ pub fn start() -> Result<(), JsValue> {
     })?;
 
     load_image("premium_carrot.png", |img| {
-        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+        PREMIUM_CARROT_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
     load_image("golden_carrot.png", |img| {
-        SEED_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
+        GOLDEN_CARROT_IMAGE.with(|cell| *cell.borrow_mut() = Some(img));
     })?;
 
+    // 添加清空存档按钮
     {
         let document = window().unwrap().document().unwrap();
         let clear_button = document.create_element("button")?;
@@ -1339,14 +1405,16 @@ pub fn start() -> Result<(), JsValue> {
             transition: all 0.2s ease;
         "#)?;
         clear_button.set_text_content(Some("清空存档"));
-        
+
+        // 添加点击事件
         let closure = Closure::wrap(Box::new(move |_event: MouseEvent| {
             let _ = clear_save();
             window().unwrap().location().reload().unwrap();
         }) as Box<dyn FnMut(_)>);
         clear_button.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
         closure.forget();
-        
+
+        // 添加到页面
         document.body().unwrap().append_child(&clear_button)?;
     }
 
