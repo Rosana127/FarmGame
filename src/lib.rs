@@ -226,14 +226,14 @@ pub fn plant(row: usize, col: usize, crop: String) {
             for task in tasks.iter_mut() {
                 let TaskType::PlantCrop { crop: ref task_crop, count: _ } = &task.task_type;
                 
-                // 修改：根据种植的作物类型确定基础作物类型
+               
                 let planted_base_crop = match crop_type {
                     CropType::Wheat | CropType::PremiumWheat | CropType::GoldenWheat => "wheat",
                     CropType::Corn | CropType::PremiumCorn | CropType::GoldenCorn => "corn",
                     CropType::Carrot | CropType::PremiumCarrot | CropType::GoldenCarrot => "carrot",
                 };
                 
-                // 检查任务要求的作物类型是否与种植的基础作物类型匹配
+ 
                 let is_same_main_type = task_crop == planted_base_crop;
                 
                 if !task.completed && is_same_main_type {
