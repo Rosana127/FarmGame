@@ -225,19 +225,17 @@ pub fn plant(row: usize, col: usize, crop: String) {
             let mut tasks = tasks.borrow_mut();
             for task in tasks.iter_mut() {
                 let TaskType::PlantCrop { crop: ref task_crop, count: _ } = &task.task_type;
-                // 新增：判断主类是否一致
-                let is_same_main_type = match (task_crop.as_str(), crop_type) {
-                    ("wheat", CropType::Wheat) => true,
-                    ("premium_wheat", CropType::PremiumWheat) => true,
-                    ("golden_wheat", CropType::GoldenWheat) => true,
-                    ("corn", CropType::Corn) => true,
-                    ("premium_corn", CropType::PremiumCorn) => true,
-                    ("golden_corn", CropType::GoldenCorn) => true,
-                    ("carrot", CropType::Carrot) => true,
-                    ("premium_carrot", CropType::PremiumCarrot) => true,
-                    ("golden_carrot", CropType::GoldenCarrot) => true,
-                    _ => false,
+                
+                // 修改：根据种植的作物类型确定基础作物类型
+                let planted_base_crop = match crop_type {
+                    CropType::Wheat | CropType::PremiumWheat | CropType::GoldenWheat => "wheat",
+                    CropType::Corn | CropType::PremiumCorn | CropType::GoldenCorn => "corn",
+                    CropType::Carrot | CropType::PremiumCarrot | CropType::GoldenCarrot => "carrot",
                 };
+                
+                // 检查任务要求的作物类型是否与种植的基础作物类型匹配
+                let is_same_main_type = task_crop == planted_base_crop;
+                
                 if !task.completed && is_same_main_type {
                     task.progress += 1;
                     if task.progress >= task.target {
