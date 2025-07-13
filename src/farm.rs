@@ -50,15 +50,10 @@ impl Farm {
         self.random_infest(); 
     }
 
-    pub fn plant(&mut self, row: usize, col: usize, crop: CropType) -> bool {
+    pub fn plant(&mut self, row: usize, col: usize, crop: CropType, seed_key: String) -> bool {
         if row < self.grid.len() && col < self.grid[0].len() {
             let tile = &mut self.grid[row][col];
-            let crop_str = match crop {
-                CropType::Wheat => "wheat",
-                CropType::Corn => "corn",
-                CropType::Carrot => "carrot",
-            };
-            if tile.can_plant() && self.inventory.remove_seed(crop_str) {
+            if tile.can_plant() && self.inventory.remove_seed(&seed_key) {
                 tile.state = TileState::Planted {
                     crop,
                     timer: 0,
