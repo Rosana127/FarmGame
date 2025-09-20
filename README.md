@@ -53,8 +53,8 @@ src/
 
 ### 1. Clone the repo
 ```bash
-git clone https://github.com/your-username/farm-sim-paradise.git
-cd farm-sim-paradise
+git clone https://github.com/your-username/FarmGame.git
+
 ```
 
 ### 2. Install dependencies
